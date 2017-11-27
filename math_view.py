@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sympy
+from sympy.core import numbers
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -15,6 +16,14 @@ import utils as U
 
 BLOCK_SIGNALS = {
     "size-changed": (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, [GObject.TYPE_INT, GObject.TYPE_INT]),
+}
+
+
+NUMBERS = [int, float, sympy.Integer, sympy.Float, numbers.E, numbers.Exp1, numbers.Pi]
+
+
+SPECIAL_SYMBOLS = {
+    numbers.Pi: "π",
 }
 
 
@@ -98,7 +107,10 @@ class ContainerBlock(Gtk.Box, Block):
             self.children.remove(current_child)
 
         if not issubclass(new_child.__class__, Block):
-            new_child = TextBlock(str(new_child))
+            if new_child.__class__ in SPECIAL_SYMBOLS.keys():
+                new_child = TextBlock(SPECIAL_SYMBOLS[new_child.__class__])
+            else:
+                new_child = TextBlock(str(new_child))
 
         if start:
             self.pack_start(new_child, a, b, s)
@@ -184,13 +196,12 @@ class MultiplicationBlock(TwoValuesBlock):
     def set_children(self, a=None, b=None):
         TwoValuesBlock.set_children(self, a, b)
 
-        if a.__class__ == int and b.__class__ == sympy.Symbol or \
-           b.__class__ == int and a.__class__ == sympy.Symbol:
+        if a.__class__ in NUMBERS and b.__class__ == sympy.Symbol or \
+           b.__class__ == NUMBERS and a.__class__ == sympy.Symbol:
 
             self.set_label("")
 
         else:
-            print a.__class__
             self.set_label("×")
 
 class DivisionBlock(TwoValuesBlock):
@@ -328,8 +339,16 @@ def convert_exp_to_blocks(expression):
         for arg in expression.args:
             args += (arg,)
 
-        print EQUIVALENCES[expression.__class__]
-        block = EQUIVALENCES[expression.__class__](*args)
+        _class = EQUIVALENCES[expression.__class__]
+        if issubclass(_class, TwoValuesBlock) and len(args) > 2:
+            block = _class(args[0], args[1])
+
+            for arg in args[2:]:
+                block = _class(block, arg)
+
+        elif issubclass(_class, TwoValuesBlock) and len(args) <= 2:
+            block = _class(*args)
+
         return block
 
     else:
@@ -369,7 +388,7 @@ if __name__ == "__main__":
     x = sympy.Symbol("x")
 
     view = MathView()
-    view.set_from_expression(3*x)
+    view.set_from_expression(sympy.pi*x*20)
     v.pack_start(view, True, True, 0)
 
     #e = Gtk.Entry()
