@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import sympy
-from sympy.core import numbers
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -13,17 +12,14 @@ from gi.repository import GObject
 
 import utils as U
 
+from consts import (
+    NUMBERS,
+    SPECIAL_SYMBOLS
+)
+
 
 BLOCK_SIGNALS = {
     "size-changed": (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, [GObject.TYPE_INT, GObject.TYPE_INT]),
-}
-
-
-NUMBERS = [int, float, sympy.Integer, sympy.Float, numbers.E, numbers.Exp1, numbers.Pi, numbers.Rational]
-
-
-SPECIAL_SYMBOLS = {
-    numbers.Pi: "π",
 }
 
 
@@ -366,90 +362,6 @@ class PowerBlock(ContainerBlock):
         self.__vbox.pack_start(self.exponent_block, False, False, 0)
 
 
-EQUIVALENCES = {
-    sympy.Add: AddBlock,
-    sympy.Mul: MultiplicationBlock,
-    sympy.Pow: PowerBlock,
-    sympy.log: Log10Block,
-    sympy.ln: LnBlock,
-    sympy.Symbol: TextBlock,
-    sympy.Integer: TextBlock,
-}
-
-
-def _startswith(obj, stw):
-    if type(obj) in [str] + NUMBERS:
-        return str(obj).startswith(stw)
-
-    elif issubclass(obj.__class__, TwoValuesBlock):
-        return _startswith(obj.get_a(), stw) or _startswith(obj.get_b(), stw)
-
-    elif issubclass(obj.__class__, TextBlock):
-        return _startswith(str(obj), stw)
-
-    return False
-
-
-def _two_values_class(_class, value1, value2):
-    """
-    Sympy toma:
-        como suma              x - 1 (x, -1)
-        como potencia          1 / x (x, -1)
-        como multiplicación    x / 2 (1/2, x)
-    """
-
-    if _class == AddBlock:
-        if _startswith(value1, "-"):
-            return SubtractBlock(value2, value1 * -1)
-
-        elif _startswith(value2, "-"):
-            return SubtractBlock(value1, value2 * -1)
-
-    elif _class == PowerBlock and str(value2).startswith("-"):
-        return DivisionBlock(value2 * -1, value1)
-
-    elif _class == MultiplicationBlock:
-        if issubclass(value1.__class__, numbers.Rational):
-            arg1, arg2 = str(value1).split("/")
-            arg1 = sympy.sympify(arg1)
-            arg2 = sympy.sympify(arg2)
-            return DivisionBlock(MultiplicationBlock(arg1, value2), arg2)
-
-    return _class(value1, value2)
-
-
-def convert_exp_to_blocks(expression):
-    if expression.__class__ in EQUIVALENCES:
-        args = ()
-        for arg in expression.args:
-            args += (convert_exp_to_blocks(arg),)
-
-        _class = EQUIVALENCES[expression.__class__]
-        if issubclass(_class, TwoValuesBlock) and len(args) > 2:
-            block = _two_values_class(_class, args[0], args[1])
-
-            for arg in args[2:]:
-                block = _two_values_class(_class, block, arg)
-
-        elif issubclass(_class, TwoValuesBlock) and len(args) <= 2:
-            block = _two_values_class(_class, *args)
-
-        elif issubclass(_class, TextBlock):
-            block = TextBlock(str(expression))
-            # print expression
-
-        else:
-            #print expression, _class, args
-            block = _class(*args)
-
-        # print str(block)
-        return block
-
-    else:
-        print "NOT IN", expression.__class__
-        return None
-
-
 class MathView(Gtk.Fixed):
 
     def __init__(self):
@@ -479,6 +391,19 @@ class MathView(Gtk.Fixed):
         expr = str(expression)
         block = rpn.expr_to_blocks(expr)
         self.set_block(block)
+
+
+EQUIVALENCES = {
+    "+":   AddBlock,
+    "-":   SubtractBlock,
+    "*":   MultiplicationBlock,
+    "/":   DivisionBlock,
+    "**":  PowerBlock,
+    "log": Log10Block,
+    "ln":  LnBlock,
+    #sympy.Symbol: TextBlock,
+    #sympy.Integer: TextBlock,
+}
 
 
 if __name__ == "__main__":

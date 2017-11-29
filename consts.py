@@ -7,6 +7,8 @@ from sympy import (
     Interval,
 )
 
+from sympy.core import numbers
+
 
 REALS = Interval(-oo, +oo)  # El signo de + no es necesario
 
@@ -158,3 +160,11 @@ EDITOR_BUTTONS_CATEGORIES = [
     "basics",
     "functions"
 ]
+
+
+NUMBERS = [int, float, sympy.Integer, sympy.Float, numbers.E, numbers.Exp1, numbers.Pi, numbers.Rational]
+
+
+SPECIAL_SYMBOLS = {
+    numbers.Pi: "π",
+}

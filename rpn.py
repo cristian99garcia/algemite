@@ -4,10 +4,11 @@
 import math
 import math_view
 
+from math_view import EQUIVALENCES
+
 
 LEFT_ASSOC = 0
 RIGHT_ASSOC = 1
-
 
 OPERATORS = {
     "+": (0, LEFT_ASSOC),
@@ -18,7 +19,6 @@ OPERATORS = {
     "log": (6, LEFT_ASSOC),
     "ln": (6, LEFT_ASSOC),
 }
-
 
 IGNORE_TO_SPACE = [chr(x) for x in range(97, 123)]
 IGNORE_TO_SPACE += [str(x) for x in range(0, 10)]
@@ -90,58 +90,6 @@ def infix_to_rpn(tokens):
 
     return out
 
-"""
-def parse_rpn(expression):
-    "" Evaluate a reverse polish notation "" 
-
-    stack = []
- 
-    if type(expression) == str:
-        expression = expression.split(" ")
-
-    for val in expression:
-        if val in ["-", "+", "*", "/", "^", "log", "**"]:
-            if val == "log":
-                op = stack.pop()
-                print "log", op
-                result = math.log(op)
-            else:
-                op1 = stack.pop()
-                op2 = stack.pop()
-                if val=="-": result = op2 - op1
-                if val=="+": result = op2 + op1
-                if val=="*": result = op2 * op1
-                if val=="/": result = op2 / op1
-                if val=="^": result = op2 ** op1
-                if val=="**": result = op2 ** op1
-
-            stack.append(result)
-        else:
-            if val == "e":
-                stack.append(math.e)
-            else:
-                stack.append(float(val))
- 
-    return stack.pop()
-"""
-
-#text = "3 5 * 10 +"
-#parse_rpn(text)
-
-
-
-EQUIVALENCES = {
-    "+":   math_view.AddBlock,
-    "-":   math_view.SubtractBlock,
-    "*":   math_view.MultiplicationBlock,
-    "/":   math_view.DivisionBlock,
-    "**":  math_view.PowerBlock,
-    "log": math_view.Log10Block,
-    "ln":  math_view.LnBlock,
-    #sympy.Symbol: TextBlock,
-    #sympy.Integer: TextBlock,
-}
-
 
 def parse_rpn(expression):
     stack = []
@@ -163,15 +111,10 @@ def parse_rpn(expression):
             stack.append(block)
 
         else:
-            #stack.append(val)
             if val == "E":
                 val = "e"
 
             stack.append(math_view.TextBlock(val))
-            #if val == "e":
-            #    stack.append(math.e)
-            #else:
-            #    stack.append(float(val))
  
     return stack.pop()
 
@@ -212,12 +155,12 @@ def expr_to_blocks(expr):
     infix = infix_to_rpn(splited)
     parsed = parse_rpn(infix)
 
-    #print parsed, infix, parsed
     return parsed
 
 
 if __name__ == "__main__":
     import sympy
+
     expr = str(sympy.log(-3*sympy.E+15)*((x**2)-1)/(x+2))
     print expr
     print split_expr(expr)
