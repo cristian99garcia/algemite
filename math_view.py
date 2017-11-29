@@ -19,7 +19,7 @@ BLOCK_SIGNALS = {
 }
 
 
-NUMBERS = [int, float, sympy.Integer, sympy.Float, numbers.E, numbers.Exp1, numbers.Pi]
+NUMBERS = [int, float, sympy.Integer, sympy.Float, numbers.E, numbers.Exp1, numbers.Pi, numbers.Rational]
 
 
 SPECIAL_SYMBOLS = {
@@ -33,6 +33,12 @@ class Block(GObject.GObject):
 
     def __init__(self):
         GObject.GObject.__init__(self)
+
+    def set_font_size(self, size):
+        pass
+
+    def get_font_size(self):
+        return 0
 
 
 class TextBlock(Gtk.Label, Block):
@@ -48,11 +54,10 @@ class TextBlock(Gtk.Label, Block):
         Gtk.Label.__init__(self)
         Block.__init__(self)
 
-        self.text = text
         self.fontd = None
 
         self.set_vexpand(False)
-        self.set_text(self.text)
+        self.set_text(text)
         self.set_font_size(30)  # FIXME: Depende del bloque padre
 
         self.connect("size-allocate", self.__size_allocate_cb)
@@ -72,6 +77,9 @@ class TextBlock(Gtk.Label, Block):
 
     def __size_allocate_cb(self, textblock, allocation):
         self.emit("size-changed", allocation.width, allocation.height)
+
+    def __str__(self):
+        return self.get_text()
 
 
 class ContainerBlock(Gtk.Box, Block):
@@ -96,6 +104,12 @@ class ContainerBlock(Gtk.Box, Block):
 
         self.label = label
         self.set_center_widget(self.label)
+
+    def set_font_size(self, size):
+        self.label.set_font_size(size)
+
+    def get_font_size(self):
+        return self.label.get_font_size()
 
     def replace_child_at(self, idx, new_child, start=True, a=False, b=False, s=0):
         if len(self.get_children()) - 2 >= idx:
@@ -169,6 +183,12 @@ class TwoValuesBlock(HContainerBlock):
 
         self.show_all()
 
+    def get_a(self):
+        return self.children[0]
+
+    def get_b(self):
+        return self.children[1]
+
 
 class AddBlock(TwoValuesBlock):
 
@@ -191,6 +211,7 @@ class MultiplicationBlock(TwoValuesBlock):
     def __init__(self, a=None, b=None):
         TwoValuesBlock.__init__(self)
 
+        #print "Mul", a, b
         self.set_children(a, b)
 
     def set_children(self, a=None, b=None):
@@ -245,12 +266,20 @@ class LogBlock(ContainerBlock):
         self.pack_start(self.__vbox, False, False, 0)
         self.__vbox.pack_end(self.base_block, False, False, 0)
 
+        self._plabel1 = TextBlock("(")
+        self._plabel1.set_font_size(self.label.get_font_size())
+        self.pack_start(self._plabel1, False, False, 0)
+
         if result is not None:
             self.result_block = result
         else:
             self.result_block = TextBlock("1")
 
         self.pack_start(self.result_block, False, False, 5)
+
+        self._plabel2 = TextBlock(")")
+        self._plabel2.set_font_size(self.label.get_font_size())
+        self.pack_start(self._plabel2, False, False, 0)
 
         self.show_all()
 
@@ -268,6 +297,8 @@ class LogBlock(ContainerBlock):
             self.result_block = result
             self.pack_start(self.result_block, False, False, 5)
 
+            self.reorder_child(self._plabel2, len(self.get_children()))
+
         if base is not None:
             if self.base_block is not None:
                 self.__vbox.remove(self.base_block)
@@ -283,14 +314,24 @@ class LogBlock(ContainerBlock):
             self.remove(self.__vbox)
 
 
+class Log10Block(LogBlock):
+
+    def __init__(self, result=None):
+        LogBlock.__init__(self, result=result)
+
+        self.set_children(base=TextBlock("10"))
+        self.show_base(False)
+        self.set_label("log")
+
+
 class LnBlock(LogBlock):
 
     """
-    Logaritmo neperiano (de base e)
+    Logaritmo neperiano (de base e).
     """
 
     def __init__(self, result=None):
-        LogBlock.__init__(self, result)
+        LogBlock.__init__(self, result=result)
 
         self.set_children(base=TextBlock("e"))
         self.show_base(False)
@@ -303,6 +344,8 @@ class PowerBlock(ContainerBlock):
         ContainerBlock.__init__(self)
 
         self.remove(self.label)
+
+        #print "Power", base, exponent
 
         if base is not None:
             self.base_block = base
@@ -326,29 +369,80 @@ class PowerBlock(ContainerBlock):
 EQUIVALENCES = {
     sympy.Add: AddBlock,
     sympy.Mul: MultiplicationBlock,
-    sympy.log: LogBlock,
+    sympy.Pow: PowerBlock,
+    sympy.log: Log10Block,
     sympy.ln: LnBlock,
     sympy.Symbol: TextBlock,
     sympy.Integer: TextBlock,
 }
 
 
+def _startswith(obj, stw):
+    if type(obj) in [str] + NUMBERS:
+        return str(obj).startswith(stw)
+
+    elif issubclass(obj.__class__, TwoValuesBlock):
+        return _startswith(obj.get_a(), stw) or _startswith(obj.get_b(), stw)
+
+    elif issubclass(obj.__class__, TextBlock):
+        return _startswith(str(obj), stw)
+
+    return False
+
+
+def _two_values_class(_class, value1, value2):
+    """
+    Sympy toma:
+        como suma              x - 1 (x, -1)
+        como potencia          1 / x (x, -1)
+        como multiplicación    x / 2 (1/2, x)
+    """
+
+    if _class == AddBlock:
+        if _startswith(value1, "-"):
+            return SubtractBlock(value2, value1 * -1)
+
+        elif _startswith(value2, "-"):
+            return SubtractBlock(value1, value2 * -1)
+
+    elif _class == PowerBlock and str(value2).startswith("-"):
+        return DivisionBlock(value2 * -1, value1)
+
+    elif _class == MultiplicationBlock:
+        if issubclass(value1.__class__, numbers.Rational):
+            arg1, arg2 = str(value1).split("/")
+            arg1 = sympy.sympify(arg1)
+            arg2 = sympy.sympify(arg2)
+            return DivisionBlock(MultiplicationBlock(arg1, value2), arg2)
+
+    return _class(value1, value2)
+
+
 def convert_exp_to_blocks(expression):
     if expression.__class__ in EQUIVALENCES:
         args = ()
         for arg in expression.args:
-            args += (arg,)
+            args += (convert_exp_to_blocks(arg),)
 
         _class = EQUIVALENCES[expression.__class__]
         if issubclass(_class, TwoValuesBlock) and len(args) > 2:
-            block = _class(args[0], args[1])
+            block = _two_values_class(_class, args[0], args[1])
 
             for arg in args[2:]:
-                block = _class(block, arg)
+                block = _two_values_class(_class, block, arg)
 
         elif issubclass(_class, TwoValuesBlock) and len(args) <= 2:
+            block = _two_values_class(_class, *args)
+
+        elif issubclass(_class, TextBlock):
+            block = TextBlock(str(expression))
+            # print expression
+
+        else:
+            #print expression, _class, args
             block = _class(*args)
 
+        # print str(block)
         return block
 
     else:
@@ -365,6 +459,14 @@ class MathView(Gtk.Fixed):
 
         self.set_border_width(10)
 
+        lb = LogBlock()
+        lb.set_children(base=TextBlock("e"))
+
+        lnb = LnBlock()
+        lnb.set_children(TextBlock("1313"))
+        lb.set_children(result=lnb)
+        self.set_block(lb)
+
     def set_block(self, block):
         if self.block is not None:
             self.remove(self.block)
@@ -374,7 +476,9 @@ class MathView(Gtk.Fixed):
             self.put(self.block, 0, 0)
 
     def set_from_expression(self, expression):
-        self.set_block(convert_exp_to_blocks(expression))
+        expr = str(expression)
+        block = rpn.expr_to_blocks(expr)
+        self.set_block(block)
 
 
 if __name__ == "__main__":
@@ -386,13 +490,13 @@ if __name__ == "__main__":
     w.add(v)
 
     x = sympy.Symbol("x")
+    f = sympy.log(-3*sympy.E+15)*((x**2)-1)/(x+2)
+
+    import rpn
 
     view = MathView()
-    view.set_from_expression(sympy.pi*x*20)
+    view.set_from_expression(f)
     v.pack_start(view, True, True, 0)
-
-    #e = Gtk.Entry()
-    #v.pack_end(e, False, False, 0)
 
     w.show_all()
     Gtk.main()
