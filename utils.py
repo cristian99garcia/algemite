@@ -618,3 +618,16 @@ def get_category_icon(category):
 
 def get_button_icon(name):
     return os.path.join(get_local_dir(), "images", name + ".svg")
+
+
+def subclass_in(_class, classes):
+    """
+    Busca si _class es una sub clase de entre todas en classes.
+    El equivalente a hacer issubclass(a, b1) or issubclass(a, b2).
+    """
+
+    for __class in classes:
+        if issubclass(_class, __class):
+            return True
+
+    return False

@@ -11,7 +11,7 @@ from gi.repository import Gdk
 from gi.repository import Pango
 from gi.repository import GObject
 
-import utils as U
+from utils import subclass_in
 
 from consts import (
     NUMBERS,
@@ -31,6 +31,8 @@ class Block(GObject.GObject):
     def __init__(self):
         GObject.GObject.__init__(self)
 
+        self._connected_signals = {}
+
     def get_size(self):
         return Gdk.Rectangle()
 
@@ -39,6 +41,22 @@ class Block(GObject.GObject):
 
     def get_font_size(self):
         return 0
+
+    def connect(self, signal, callback, *args):
+        sid = GObject.GObject.connect(self, signal, callback, *args)
+
+        if signal not in self._connected_signals.keys():
+            self._connected_signals[signal] = []
+
+        self._connected_signals[signal].append(sid)
+
+    def disconnect_signal(self, signal, idx=0):
+        if signal in self._connected_signals.keys():
+            if len(self._connected_signals) >= idx + 1:
+                sid = self._connected_signals[signal][idx]
+                GObject.GObject.disconnect(self, sid)
+
+                self._connected_signals[signal].remove(sid)
 
 
 class TextBlock(Gtk.Label, Block):
@@ -117,7 +135,6 @@ class ContainerBlock(Gtk.Box, Block):
         Block.__init__(self)
 
         self.children = []
-        self._callback_ids = []
 
         self.label = TextBlock()
         self.set_center_widget(self.label)
@@ -146,12 +163,14 @@ class ContainerBlock(Gtk.Box, Block):
         return self.label.get_font_size()
 
     def replace_child_at(self, idx, new_child, start=True, a=False, b=False, s=0):
+        #print idx, new_child, start, a, b, s
+
         if len(self.get_children()) - 2 >= idx:
             # 2 Porque len() da un número mayor al requerido
             # y porque hay que ignorar el label 
 
             current_child = self.children[idx]
-            current_child.disconnect(self._callback_ids[idx])
+            current_child.disconnect_signal("size-changed")
             self.remove(current_child)
             self.children.remove(current_child)
 
@@ -168,10 +187,8 @@ class ContainerBlock(Gtk.Box, Block):
         else:
             self.pack_end(new_child, a, b, s)
 
-        callback_id = new_child.connect("size-changed", self._child_size_changed_cb)
-
+        new_child.connect("size-changed", self._child_size_changed_cb)
         self.children.insert(idx, new_child)
-        self._callback_ids.insert(idx, callback_id)
         self.show_children()
 
     def show_children(self, ignore_label=False):
@@ -216,13 +233,18 @@ class TwoValuesBlock(HContainerBlock):
         HContainerBlock.__init__(self)
 
         self.children = []
+        self.a = a
+        self.b = b
+
         self.set_children(a, b)
 
     def set_children(self, a=None, b=None):
         if a is not None:
+            self.a = a
             self.replace_child_at(0, a)
 
         if b is not None:
+            self.b = b
             self.replace_child_at(1, b, False)
 
         self.show_all()
@@ -249,18 +271,71 @@ class MultiplicationBlock(TwoValuesBlock):
     def __init__(self, a=None, b=None):
         TwoValuesBlock.__init__(self)
 
+        self._plabela1 = TextBlock("(")
+        self._plabela2 = TextBlock(")")
+        self._plabelb1 = TextBlock("(")
+        self._plabelb2 = TextBlock(")")
+
+        for label in [self._plabela1, self._plabela2, self._plabelb1, self._plabelb2]:
+            label.set_font_size(self.label.get_font_size())
+
         self.set_children(a, b)
 
     def set_children(self, a=None, b=None):
-        TwoValuesBlock.set_children(self, a, b)
+        pa = self.a
+        pb = self.b
+
+        TwoValuesBlock.set_children(self, a=a, b=b)
+
+        #print "previous a", pa
+        #print "current a", self.a
+        #print "previous b", pb
+        #print "current b", self.b
+        #print "---------"
 
         if a.__class__ in NUMBERS and b.__class__ == sympy.Symbol or \
            b.__class__ in NUMBERS and a.__class__ == sympy.Symbol:
-
+            # Combinación de un número y un símbolo, ejemplo: 3x
             self.set_label("")
 
         else:
             self.set_label("×")
+
+        multiple = [AddBlock, SubtractBlock]
+        current_multple = subclass_in(self.a.__class__, multiple)
+        prev_multiple = subclass_in(pa.__class__, multiple)
+
+        if current_multple and not prev_multiple:
+            self.pack_start(self._plabela1, False, False, 0)
+            self.pack_start(self._plabela2, False, False, 0)
+
+            self.show_all()
+
+        elif not current_multple and prev_multiple:
+            self.remove(self._plabela1)
+            self.remove(self._plabela2)
+
+        if current_multple:
+            self.reorder_child(self._plabela1, 0)
+            self.reorder_child(self._plabela2, 3)
+
+        current_multple = subclass_in(self.b.__class__, multiple)
+        prev_multiple = subclass_in(pb.__class__, multiple)
+
+        if current_multple and not prev_multiple:
+            self.pack_end(self._plabelb1, False, False, 0)
+            self.pack_end(self._plabelb2, False, False, 0)
+
+            self.show_all()
+
+        elif not current_multple and prev_multiple:
+            self.remove(self._plabelb1)
+            self.remove(self._plabelb2)
+
+        if current_multple:
+            self.reorder_child(self._plabelb1, -1)
+            self.reorder_child(self._plabelb2, 0)
+
 
 class DivisionBlock(TwoValuesBlock):
 
@@ -502,7 +577,11 @@ class MathView(Gtk.Fixed):
 
 
 def _test_something(button, view):
-    view.block.set_children(a=AddBlock(TextBlock("1"), TextBlock("2")))
+    #view.block.set_children(a=AddBlock(TextBlock("1"), TextBlock("2")))
+    mul = view.block.children[0]
+    a = LnBlock(TextBlock("3x"))
+    b = AddBlock(TextBlock("x"), DivisionBlock(TextBlock("x"), TextBlock("3")))
+    mul.set_children(a, b)
 
 
 if __name__ == "__main__":
