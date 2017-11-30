@@ -79,7 +79,8 @@ MATH_CHARS = {
     "Z": "}",
     "add": "*",
     "reals": "_",
-    "+": "!"
+    "+": "!",
+    "summation": chr(170),
 }
 
 
@@ -88,6 +89,8 @@ class Chars:
     PERTENECIENTE = "∈"
     TREND = "→"
     INFINITY = "∞"
+    PI = "π"
+    CAPITAL_SIGMA = "Σ"
 
 
 class Branch:
@@ -166,5 +169,5 @@ NUMBERS = [int, float, sympy.Integer, sympy.Float, numbers.E, numbers.Exp1, numb
 
 
 SPECIAL_SYMBOLS = {
-    numbers.Pi: "π",
+    numbers.Pi: Chars.PI,
 }

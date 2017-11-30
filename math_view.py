@@ -14,7 +14,9 @@ from gi.repository import GObject
 from utils import subclass_in
 
 from consts import (
+    Chars,
     NUMBERS,
+    MATH_CHARS,
     SPECIAL_SYMBOLS
 )
 
@@ -159,12 +161,13 @@ class ContainerBlock(Gtk.Box, Block):
     def set_font_size(self, size):
         self.label.set_font_size(size)
 
+        for child in self.children:
+            child.set_font_size(size)
+
     def get_font_size(self):
         return self.label.get_font_size()
 
     def replace_child_at(self, idx, new_child, start=True, a=False, b=False, s=0):
-        #print idx, new_child, start, a, b, s
-
         if len(self.get_children()) - 2 >= idx:
             # 2 Porque len() da un número mayor al requerido
             # y porque hay que ignorar el label 
@@ -276,10 +279,8 @@ class MultiplicationBlock(TwoValuesBlock):
         self._plabelb1 = TextBlock("(")
         self._plabelb2 = TextBlock(")")
 
-        for label in [self._plabela1, self._plabela2, self._plabelb1, self._plabelb2]:
-            label.set_font_size(self.label.get_font_size())
-
         self.set_children(a, b)
+        self.set_font_size(self.label.get_font_size())
 
     def set_children(self, a=None, b=None):
         pa = self.a
@@ -287,16 +288,18 @@ class MultiplicationBlock(TwoValuesBlock):
 
         TwoValuesBlock.set_children(self, a=a, b=b)
 
-        #print "previous a", pa
-        #print "current a", self.a
-        #print "previous b", pb
-        #print "current b", self.b
-        #print "---------"
-
         if a.__class__ in NUMBERS and b.__class__ == sympy.Symbol or \
            b.__class__ in NUMBERS and a.__class__ == sympy.Symbol:
             # Combinación de un número y un símbolo, ejemplo: 3x
             self.set_label("")
+
+        elif a.__class__ == PowerBlock and b.__class__ != PowerBlock or \
+             b.__class__ == PowerBlock and a.__class__ != PowerBlock:
+            # Combinación de un número y una potencia
+            # TODO: Hay que fijarse en la base de la potencia y cuál está
+            # primero, para evitar casos como: 3 [*] 3**x, x**2 [*] e
+            # self.set_label("")
+            self.set_label("×")
 
         else:
             self.set_label("×")
@@ -336,6 +339,11 @@ class MultiplicationBlock(TwoValuesBlock):
             self.reorder_child(self._plabelb1, -1)
             self.reorder_child(self._plabelb2, 0)
 
+    def set_font_size(self, size):
+        for block in [self.label, self._plabela1, self._plabela2, self._plabelb1, self._plabelb2, self.a, self.b]:
+            if block is not None:
+                block.set_font_size(size)
+
 
 class DivisionBlock(TwoValuesBlock):
 
@@ -345,7 +353,7 @@ class DivisionBlock(TwoValuesBlock):
         self.set_orientation(Gtk.Orientation.VERTICAL)
         self.set_label("─")
         self.set_font_size(20)   # FIXME: Depende del padre
-
+        self.set_valign(Gtk.Align.CENTER)
 
     def _child_size_changed_cb(self, child, width, height):
         text = "─"
@@ -363,8 +371,7 @@ class DivisionBlock(TwoValuesBlock):
 
         def queue(label, clock):
             """
-            Hay que esperar un poco para que tome
-            el nuevo tamaño.
+            Hay que esperar un poco para que tome el nuevo tamaño.
             """
             label.queue_resize()
             self.set_label(text)
@@ -386,7 +393,6 @@ class LogBlock(ContainerBlock):
         ContainerBlock.__init__(self)
 
         self.set_label("log")
-        self.label.set_font_size(48)
         self.remove(self.label)
         self.pack_start(self.label, False, False, 0)
 
@@ -395,14 +401,11 @@ class LogBlock(ContainerBlock):
         else:
             self.base_block = TextBlock("0")
 
-        self.base_block.set_font_size(self.label.get_font_size() / 2)
-
         self.__vbox = Gtk.VBox()
         self.pack_start(self.__vbox, False, False, 0)
         self.__vbox.pack_end(self.base_block, False, False, 0)
 
         self._plabel1 = TextBlock("(")
-        self._plabel1.set_font_size(self.label.get_font_size())
         self.pack_start(self._plabel1, False, False, 0)
 
         if result is not None:
@@ -413,9 +416,9 @@ class LogBlock(ContainerBlock):
         self.pack_start(self.result_block, False, False, 5)
 
         self._plabel2 = TextBlock(")")
-        self._plabel2.set_font_size(self.label.get_font_size())
         self.pack_start(self._plabel2, False, False, 0)
 
+        self.set_font_size(48)  # FIXME: Depende del padre
         self.show_all()
 
     def set_children(self, result=None, base=None, a=None, b=None):
@@ -448,6 +451,13 @@ class LogBlock(ContainerBlock):
         elif not show and self.__vbox in self.get_children():
             self.remove(self.__vbox)
 
+    def set_font_size(self, size):
+        self.label.set_font_size(size)
+        self._plabel1.set_font_size(size)
+        self._plabel2.set_font_size(size)
+        self.base_block.set_font_size(size / 2)
+        self.result_block.set_font_size(size)
+
 
 class Log10Block(LogBlock):
 
@@ -475,12 +485,14 @@ class LnBlock(LogBlock):
 
 class PowerBlock(ContainerBlock):
 
+    # TODO: Cuando base_block es un contenedor con múltiples
+    # hijos (como una suma, resta, multiplicación (en algunos
+    # casos)) se deberían agregar paréntesis
+
     def __init__(self, base=None, exponent=None):
         ContainerBlock.__init__(self)
 
         self.remove(self.label)
-
-        #print "Power", base, exponent
 
         if base is not None:
             self.base_block = base
@@ -497,8 +509,81 @@ class PowerBlock(ContainerBlock):
         self.__vbox = Gtk.VBox()
         self.pack_end(self.__vbox, False, False, 5)
 
-        self.exponent_block.set_font_size(self.base_block.get_font_size() / 2)
         self.__vbox.pack_start(self.exponent_block, False, False, 0)
+
+        self.set_font_size(self.label.get_font_size())
+
+    def set_font_size(self, size):
+        self.base_block.set_font_size(size)
+        self.exponent_block.set_font_size(size / 2)
+
+
+class SummationBlock(ContainerBlock):
+
+    """
+    Debería agregar paréntesis? En qué casos?
+    """
+
+    def __init__(self, lower_limit=None, upper_limit=None, expression=None):
+        ContainerBlock.__init__(self)
+
+        self.set_orientation(Gtk.Orientation.HORIZONTAL)
+        self.set_label(Chars.CAPITAL_SIGMA)
+
+        self.lower_limit_block = lower_limit
+        self.upper_limit_block = upper_limit
+        self.expression_block = expression
+
+        self._vbox = Gtk.VBox()
+        self.pack_start(self._vbox, False, False, 0)
+
+        self.remove(self.label)
+        self._vbox.pack_start(self.label, False, False, 0)
+
+        self.set_children(lower_limit, upper_limit, expression)
+        self.set_font_size(68)  # FIXME: Depende del padre
+        self.show_all()
+
+    def set_children(self, lower_limit=None, upper_limit=None, expression=None):
+        if upper_limit is not None:  # FIXME: Y si el usuario quiere que upper_limit_block sea None ?
+            if self.upper_limit_block is not None:
+                self._vbox.remove(self.upper_limit_block)
+
+            self.upper_limit_block = upper_limit
+            self.upper_limit_block.set_halign(Gtk.Align.CENTER)
+            self._vbox.pack_start(self.upper_limit_block, False, False, 0)
+            self._vbox.reorder_child(self.upper_limit_block, 0)
+
+        if lower_limit is not None:  # FIXME: Y si el usuario quiere que lower_limit_block sea None ?
+            if self.lower_limit_block is not None:
+                self._vbox.remove(self.lower_limit_block)
+
+            self.lower_limit_block = lower_limit
+            self.lower_limit_block.set_halign(Gtk.Align.CENTER)
+            self._vbox.pack_end(self.lower_limit_block, False, False, 0)
+            self._vbox.reorder_child(self.lower_limit_block, 0)
+
+        if expression is not None:  # FIXME: Y si el usuario quiere que expression_block sea None ?
+            if self.expression_block is not None:
+                self.remove(self.expression_block)
+
+            self.expression_block = expression
+            self.expression_block.set_halign(Gtk.Align.START)
+            self.pack_start(self.expression_block, False, False, 0)
+
+        # FIXME: Resetear fuente a los hijos nuevos
+
+    def set_font_size(self, size):
+        self.label.set_font_size(size)
+        if self.upper_limit_block is not None:
+            self.upper_limit_block.set_font_size(size / 4)
+
+        if self.lower_limit_block is not None:
+            self.lower_limit_block.set_font_size(size / 4)
+
+        if self.expression_block is not None:
+            # Tal vez debería establecer un alto máximo (el de Sigma)
+            self.expression_block.set_font_size(size / 2)
 
 
 EQUIVALENCES = {
@@ -554,13 +639,12 @@ class MathView(Gtk.Fixed):
 
         self.set_border_width(10)
 
-        lb = LogBlock()
-        lb.set_children(base=TextBlock("e"))
+        upper = EqualBlock(TextBlock("i"), parse_rpn(rpn.expr_to_rpn(str(x**3))))
+        lower = EqualBlock(TextBlock("i"), parse_rpn(rpn.expr_to_rpn(str(x-2))))
+        expr = parse_rpn(rpn.expr_to_rpn(str((4*x - sympy.log(x**2)) / (x - 2))))
 
-        lnb = LnBlock()
-        lnb.set_children(TextBlock("1313"))
-        lb.set_children(result=lnb)
-        self.set_block(lb)
+        s = SummationBlock(lower, upper, expr)
+        self.set_block(EqualBlock("f(x)", s))
 
     def set_block(self, block):
         if self.block is not None:
@@ -577,9 +661,12 @@ class MathView(Gtk.Fixed):
 
 
 def _test_something(button, view):
-    #view.block.set_children(a=AddBlock(TextBlock("1"), TextBlock("2")))
+    x = sympy.Symbol("x")
+    f = 3*x**2
+    block = parse_rpn(rpn.expr_to_rpn(str(f)))
+
     mul = view.block.children[0]
-    a = LnBlock(TextBlock("3x"))
+    a = LnBlock(block)
     b = AddBlock(TextBlock("x"), DivisionBlock(TextBlock("x"), TextBlock("3")))
     mul.set_children(a, b)
 
@@ -598,7 +685,7 @@ if __name__ == "__main__":
     import rpn
 
     view = MathView()
-    view.set_from_expression(f)
+    #view.set_from_expression(f)
     v.pack_start(view, True, True, 0)
 
     b = Gtk.Button("test")
