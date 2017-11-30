@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import math
-import math_view
-
-from math_view import EQUIVALENCES
-
-
 LEFT_ASSOC = 0
 RIGHT_ASSOC = 1
 
@@ -44,7 +38,7 @@ def cmp_precedence(token1, token2):
     return OPERATORS[token1][0] - OPERATORS[token2][0]
 
 
-def infix_to_rpn(tokens):
+def splited_to_rpn(tokens):
     """
     Reverse Polish Notation.
     Source: http://andreinc.net/2010/10/05/converting-infix-to-rpn-shunting-yard-algorithm/
@@ -91,34 +85,6 @@ def infix_to_rpn(tokens):
     return out
 
 
-def parse_rpn(expression):
-    stack = []
- 
-    if type(expression) == str:
-        expression = expression.split(" ")
-
-    ops = EQUIVALENCES.keys()
-
-    for val in expression:
-        if val in ops:
-            if val == "log":
-                block = math_view.LnBlock(stack.pop())
-            else:
-                op1 = stack.pop()
-                op2 = stack.pop()
-                block = EQUIVALENCES[val](op2, op1)
-
-            stack.append(block)
-
-        else:
-            if val == "E":
-                val = "e"
-
-            stack.append(math_view.TextBlock(val))
- 
-    return stack.pop()
-
-
 def split_expr(string):
     tokens = []
     obligatory = ["(", ")"]
@@ -150,12 +116,16 @@ def split_expr(string):
     return tokens
 
 
-def expr_to_blocks(expr):
+def expr_to_rpn(expr, blocks=False):
     splited = split_expr(expr)
-    infix = infix_to_rpn(splited)
-    parsed = parse_rpn(infix)
+    rpn = splited_to_rpn(splited)
 
-    return parsed
+    if blocks:
+        # Solo para pruebas
+        import math_view
+        return math_view.parse_rpn(rpn)
+
+    return rpn
 
 
 if __name__ == "__main__":

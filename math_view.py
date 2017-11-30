@@ -7,6 +7,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 
 from gi.repository import Gtk
+from gi.repository import Gdk
 from gi.repository import Pango
 from gi.repository import GObject
 
@@ -29,6 +30,9 @@ class Block(GObject.GObject):
 
     def __init__(self):
         GObject.GObject.__init__(self)
+
+    def get_size(self):
+        return Gdk.Rectangle()
 
     def set_font_size(self, size):
         pass
@@ -55,8 +59,23 @@ class TextBlock(Gtk.Label, Block):
         self.set_vexpand(False)
         self.set_text(text)
         self.set_font_size(30)  # FIXME: Depende del bloque padre
+        self.set_valign(Gtk.Align.CENTER)
+        self.set_halign(Gtk.Align.CENTER)
 
         self.connect("size-allocate", self.__size_allocate_cb)
+
+    def get_size(self):
+        return self.get_allocation()
+
+    def get_hypothetical_size(self, text=""):
+        """
+        Devuelve el tamaño hipotético para un texto determinado
+        (o para el actual), con la configuración de fuente actual.
+        """
+
+        layout = self.get_layout()
+        layout.set_markup(text)
+        return layout.get_pixel_size()
 
     def set_font_size(self, size):
         self.set_font(str(size))
@@ -70,6 +89,17 @@ class TextBlock(Gtk.Label, Block):
     def set_font(self, font):
         self.fontd = Pango.FontDescription(font)
         self.override_font(self.fontd)
+
+    def copy(self):
+        tb = TextBlock(self.get_text())
+
+        if self.fontd is not None:
+            tb.override_font(self.fontd)
+
+        else:
+            tb.set_font_size(self.get_font_size())
+
+        return tb
 
     def __size_allocate_cb(self, textblock, allocation):
         self.emit("size-changed", allocation.width, allocation.height)
@@ -87,9 +117,17 @@ class ContainerBlock(Gtk.Box, Block):
         Block.__init__(self)
 
         self.children = []
+        self._callback_ids = []
 
         self.label = TextBlock()
         self.set_center_widget(self.label)
+        self.set_vexpand(False)
+        self.set_hexpand(False)
+
+        self.connect("size-allocate", self.__size_allocate_cb)
+
+    def get_size(self):
+        return self.get_allocation()
 
     def set_label(self, text):
         self.label.set_text(text)
@@ -113,12 +151,14 @@ class ContainerBlock(Gtk.Box, Block):
             # y porque hay que ignorar el label 
 
             current_child = self.children[idx]
+            current_child.disconnect(self._callback_ids[idx])
             self.remove(current_child)
             self.children.remove(current_child)
 
         if not issubclass(new_child.__class__, Block):
             if new_child.__class__ in SPECIAL_SYMBOLS.keys():
                 new_child = TextBlock(SPECIAL_SYMBOLS[new_child.__class__])
+
             else:
                 new_child = TextBlock(str(new_child))
 
@@ -128,7 +168,10 @@ class ContainerBlock(Gtk.Box, Block):
         else:
             self.pack_end(new_child, a, b, s)
 
+        callback_id = new_child.connect("size-changed", self._child_size_changed_cb)
+
         self.children.insert(idx, new_child)
+        self._callback_ids.insert(idx, callback_id)
         self.show_children()
 
     def show_children(self, ignore_label=False):
@@ -142,24 +185,29 @@ class ContainerBlock(Gtk.Box, Block):
             else:
                 child.show_all()
 
+    def _child_size_changed_cb(self, child, width, height):
+        pass
+
+    def __size_allocate_cb(self, textblock, allocation):
+        self.emit("size-changed", allocation.width, allocation.height)
+
 
 class VContainerBlock(ContainerBlock):
 
     def __init__(self):
-        ContainerBlock.__init__(self, orientation=Gtk.Orientation.VERTICAL)
+        ContainerBlock.__init__(self)
 
-        #self.children = []
-        # Estructura de cada valor en children:
-        # {
-        #    "x": int,
-        #    "y": int,
-        #    "widget": GtkWidget,
-        # }
+        self.set_orientation(Gtk.Orientation.VERTICAL)
+        self.set_valign(Gtk.Align.CENTER)
+
 
 class HContainerBlock(ContainerBlock):
 
     def __init__(self):
-        ContainerBlock.__init__(self, orientation=Gtk.Orientation.HORIZONTAL)
+        ContainerBlock.__init__(self)
+
+        self.set_orientation(Gtk.Orientation.HORIZONTAL)
+        self.set_halign(Gtk.Align.CENTER)
 
 
 class TwoValuesBlock(HContainerBlock):
@@ -178,12 +226,6 @@ class TwoValuesBlock(HContainerBlock):
             self.replace_child_at(1, b, False)
 
         self.show_all()
-
-    def get_a(self):
-        return self.children[0]
-
-    def get_b(self):
-        return self.children[1]
 
 
 class AddBlock(TwoValuesBlock):
@@ -207,14 +249,13 @@ class MultiplicationBlock(TwoValuesBlock):
     def __init__(self, a=None, b=None):
         TwoValuesBlock.__init__(self)
 
-        #print "Mul", a, b
         self.set_children(a, b)
 
     def set_children(self, a=None, b=None):
         TwoValuesBlock.set_children(self, a, b)
 
         if a.__class__ in NUMBERS and b.__class__ == sympy.Symbol or \
-           b.__class__ == NUMBERS and a.__class__ == sympy.Symbol:
+           b.__class__ in NUMBERS and a.__class__ == sympy.Symbol:
 
             self.set_label("")
 
@@ -227,10 +268,33 @@ class DivisionBlock(TwoValuesBlock):
         TwoValuesBlock.__init__(self, a, b)
 
         self.set_orientation(Gtk.Orientation.VERTICAL)
+        self.set_label("─")
+        self.set_font_size(20)   # FIXME: Depende del padre
 
-        label = TextBlock("───")  # FIXME: Depende de los hijos
-        label.set_font_size(20)   # FIXME: Depende del padre
-        self.set_label_widget(label)
+
+    def _child_size_changed_cb(self, child, width, height):
+        text = "─"
+
+        max_width = 0
+        char_width = self.label.get_hypothetical_size(text).width
+
+        for child in self.children:
+            if child == self.label:
+                continue
+
+            max_width = max(child.get_size().width, max_width)
+
+        text *= (max_width / char_width + 1)
+
+        def queue(label, clock):
+            """
+            Hay que esperar un poco para que tome
+            el nuevo tamaño.
+            """
+            label.queue_resize()
+            self.set_label(text)
+
+        self.label.add_tick_callback(queue)
 
 
 class EqualBlock(TwoValuesBlock):
@@ -362,6 +426,50 @@ class PowerBlock(ContainerBlock):
         self.__vbox.pack_start(self.exponent_block, False, False, 0)
 
 
+EQUIVALENCES = {
+    "+":   AddBlock,
+    "-":   SubtractBlock,
+    "*":   MultiplicationBlock,
+    "/":   DivisionBlock,
+    "**":  PowerBlock,
+    "log": Log10Block,
+    "ln":  LnBlock,
+}
+
+
+def parse_rpn(expression):
+    """
+    Tiene que ser en este archivo, de lo contrario la función
+    issubclass devuelve False (ContainerBlock.replace_child_at).
+    """
+
+    stack = []
+ 
+    if type(expression) == str:
+        expression = expression.split(" ")
+
+    ops = EQUIVALENCES.keys()
+
+    for val in expression:
+        if val in ops:
+            if val == "log":
+                block = LnBlock(stack.pop())
+            else:
+                op1 = stack.pop()
+                op2 = stack.pop()
+                block = EQUIVALENCES[val](op2, op1)
+
+            stack.append(block)
+
+        else:
+            if val == "E":
+                val = "e"
+
+            stack.append(TextBlock(val))
+ 
+    return stack.pop()
+
+
 class MathView(Gtk.Fixed):
 
     def __init__(self):
@@ -389,21 +497,12 @@ class MathView(Gtk.Fixed):
 
     def set_from_expression(self, expression):
         expr = str(expression)
-        block = rpn.expr_to_blocks(expr)
+        block = parse_rpn(rpn.expr_to_rpn(expr))
         self.set_block(block)
 
 
-EQUIVALENCES = {
-    "+":   AddBlock,
-    "-":   SubtractBlock,
-    "*":   MultiplicationBlock,
-    "/":   DivisionBlock,
-    "**":  PowerBlock,
-    "log": Log10Block,
-    "ln":  LnBlock,
-    #sympy.Symbol: TextBlock,
-    #sympy.Integer: TextBlock,
-}
+def _test_something(button, view):
+    view.block.set_children(a=AddBlock(TextBlock("1"), TextBlock("2")))
 
 
 if __name__ == "__main__":
@@ -422,6 +521,10 @@ if __name__ == "__main__":
     view = MathView()
     view.set_from_expression(f)
     v.pack_start(view, True, True, 0)
+
+    b = Gtk.Button("test")
+    b.connect("clicked", _test_something, view)
+    v.pack_end(b, False, False, 0)
 
     w.show_all()
     Gtk.main()
