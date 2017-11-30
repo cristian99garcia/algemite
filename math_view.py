@@ -288,24 +288,8 @@ class MultiplicationBlock(TwoValuesBlock):
 
         TwoValuesBlock.set_children(self, a=a, b=b)
 
-        if a.__class__ in NUMBERS and b.__class__ == sympy.Symbol or \
-           b.__class__ in NUMBERS and a.__class__ == sympy.Symbol:
-            # Combinación de un número y un símbolo, ejemplo: 3x
-            self.set_label("")
-
-        elif a.__class__ == PowerBlock and b.__class__ != PowerBlock or \
-             b.__class__ == PowerBlock and a.__class__ != PowerBlock:
-            # Combinación de un número y una potencia
-            # TODO: Hay que fijarse en la base de la potencia y cuál está
-            # primero, para evitar casos como: 3 [*] 3**x, x**2 [*] e
-            # self.set_label("")
-            self.set_label("×")
-
-        else:
-            self.set_label("×")
-
         multiple = [AddBlock, SubtractBlock]
-        current_multple = subclass_in(self.a.__class__, multiple)
+        _a = current_multple = subclass_in(self.a.__class__, multiple)
         prev_multiple = subclass_in(pa.__class__, multiple)
 
         if current_multple and not prev_multiple:
@@ -322,7 +306,7 @@ class MultiplicationBlock(TwoValuesBlock):
             self.reorder_child(self._plabela1, 0)
             self.reorder_child(self._plabela2, 3)
 
-        current_multple = subclass_in(self.b.__class__, multiple)
+        _b = current_multple = subclass_in(self.b.__class__, multiple)
         prev_multiple = subclass_in(pb.__class__, multiple)
 
         if current_multple and not prev_multiple:
@@ -338,6 +322,22 @@ class MultiplicationBlock(TwoValuesBlock):
         if current_multple:
             self.reorder_child(self._plabelb1, -1)
             self.reorder_child(self._plabelb2, 0)
+
+        if (_a and not _b) or (_b and not _a):
+            self.set_label("")
+
+        else:
+            if self.a.__class__ == self.b.__class__ == TextBlock:
+                _text_a = self.a.get_text()
+                _text_b = self.b.get_text()
+
+                if (_text_a == "x" and _text_b != "x") or \
+                   (_text_b == "x" and _text_a != "x"):
+
+                    self.set_label("")
+
+                else:
+                    self.set_label("×")
 
     def set_font_size(self, size):
         for block in [self.label, self._plabela1, self._plabela2, self._plabelb1, self._plabelb2, self.a, self.b]:
@@ -660,18 +660,19 @@ class MathView(Gtk.Fixed):
         self.set_block(block)
 
 
-def _test_something(button, view):
-    x = sympy.Symbol("x")
-    f = 3*x**2
-    block = parse_rpn(rpn.expr_to_rpn(str(f)))
-
-    mul = view.block.children[0]
-    a = LnBlock(block)
-    b = AddBlock(TextBlock("x"), DivisionBlock(TextBlock("x"), TextBlock("3")))
-    mul.set_children(a, b)
-
-
 if __name__ == "__main__":
+    def _test_something(button, view):
+        # Una función para probar algo como callback
+        x = sympy.Symbol("x")
+        f = 3*x**2
+        block = parse_rpn(rpn.expr_to_rpn(str(f)))
+
+        mul = view.block.children[0]
+        a = LnBlock(block)
+        b = AddBlock(TextBlock("x"), DivisionBlock(TextBlock("x"), TextBlock("3")))
+        mul.set_children(a, b)
+
+
     w = Gtk.Window()
     #w.set_default_size(600, 480)
     w.connect("destroy", Gtk.main_quit)
@@ -688,9 +689,9 @@ if __name__ == "__main__":
     #view.set_from_expression(f)
     v.pack_start(view, True, True, 0)
 
-    b = Gtk.Button("test")
+    b = Gtk.Button("test")  # Un botón de pruebas
     b.connect("clicked", _test_something, view)
-    v.pack_end(b, False, False, 0)
+    # v.pack_end(b, False, False, 0)
 
     w.show_all()
     Gtk.main()
