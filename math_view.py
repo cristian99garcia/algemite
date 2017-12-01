@@ -250,6 +250,7 @@ class TwoValuesBlock(HContainerBlock):
             self.b = b
             self.replace_child_at(1, b, False)
 
+        self.children = [self.a, self.b]
         self.show_all()
 
 
@@ -351,30 +352,22 @@ class DivisionBlock(TwoValuesBlock):
         TwoValuesBlock.__init__(self, a, b)
 
         self.set_orientation(Gtk.Orientation.VERTICAL)
-        self.set_label("─")
+        self.set_label(Chars.HORIZONTAL_BAR)
         self.set_font_size(20)   # FIXME: Depende del padre
         self.set_valign(Gtk.Align.CENTER)
 
     def _child_size_changed_cb(self, child, width, height):
-        text = "─"
-
-        max_width = 0
-        char_width = self.label.get_hypothetical_size(text).width
-
-        for child in self.children:
-            if child == self.label:
-                continue
-
-            max_width = max(child.get_size().width, max_width)
-
-        text *= (max_width / char_width + 1)
+        char_width = self.label.get_hypothetical_size(Chars.HORIZONTAL_BAR).width
 
         def queue(label, clock):
             """
             Hay que esperar un poco para que tome el nuevo tamaño.
             """
+            max_width = max(self.a.get_size().width, self.b.get_size().width)
+            w = (max_width / char_width + 1)
+
             label.queue_resize()
-            self.set_label(text)
+            label.set_label(Chars.HORIZONTAL_BAR * w)
 
         self.label.add_tick_callback(queue)
 
@@ -443,6 +436,8 @@ class LogBlock(ContainerBlock):
 
             self.base_block = base
             self.__vbox.pack_end(self.base_block, False, False, 0)
+
+        self.children = [self.base_block, self.result_block]
 
     def show_base(self, show=True):
         if show and self.__vbox not in self.get_children():
@@ -535,7 +530,7 @@ class SummationBlock(ContainerBlock):
         self.expression_block = expression
 
         self._vbox = Gtk.VBox()
-        self.pack_start(self._vbox, False, False, 0)
+        self.pack_start(self._vbox, False, False, 5)
 
         self.remove(self.label)
         self._vbox.pack_start(self.label, False, False, 0)
@@ -571,6 +566,7 @@ class SummationBlock(ContainerBlock):
             self.expression_block.set_halign(Gtk.Align.START)
             self.pack_start(self.expression_block, False, False, 0)
 
+        self.children = [self.lower_limit_block, self.upper_limit_block, self.expression_block]
         # FIXME: Resetear fuente a los hijos nuevos
 
     def set_font_size(self, size):
@@ -586,14 +582,24 @@ class SummationBlock(ContainerBlock):
             self.expression_block.set_font_size(size / 2)
 
 
-EQUIVALENCES = {
+ONE_VALUE = {
+    "ln": LnBlock,
+    #"log": Log10Block,
+    "log": LnBlock,
+}
+
+
+TWO_VALUES = {
     "+":   AddBlock,
     "-":   SubtractBlock,
     "*":   MultiplicationBlock,
     "/":   DivisionBlock,
     "**":  PowerBlock,
-    "log": Log10Block,
-    "ln":  LnBlock,
+}
+
+
+TRHEE_VALUES = {
+    "Sum": SummationBlock,
 }
 
 
@@ -608,23 +614,27 @@ def parse_rpn(expression):
     if type(expression) == str:
         expression = expression.split(" ")
 
-    ops = EQUIVALENCES.keys()
+    one_v = ONE_VALUE.keys()
+    two_v = TWO_VALUES.keys()
+    three_v = TRHEE_VALUES.keys()
 
     for val in expression:
-        if val in ops:
-            if val == "log":
-                block = LnBlock(stack.pop())
-            else:
-                op1 = stack.pop()
-                op2 = stack.pop()
-                block = EQUIVALENCES[val](op2, op1)
+        if val in one_v:
+            stack.append(ONE_VALUE[val](stack.pop()))
 
-            stack.append(block)
+        elif val in two_v:
+            op1 = stack.pop()
+            op2 = stack.pop()
+            stack.append(TWO_VALUES[val](op2, op1))
+
+        elif val in three_v:
+            op1 = stack.pop()
+            op2 = stack.pop()
+            op3 = stack.pop()
+            stack.append(TRHEE_VALUES[val](op3, op2, op1))
 
         else:
-            if val == "E":
-                val = "e"
-
+            val = Chars.get_char(val, val)
             stack.append(TextBlock(val))
  
     return stack.pop()
@@ -639,9 +649,11 @@ class MathView(Gtk.Fixed):
 
         self.set_border_width(10)
 
+        # Test settings:
+        f = (x - 2) / (4*x - sympy.ln(x**2))
         upper = EqualBlock(TextBlock("i"), parse_rpn(rpn.expr_to_rpn(str(x**3))))
         lower = EqualBlock(TextBlock("i"), parse_rpn(rpn.expr_to_rpn(str(x-2))))
-        expr = parse_rpn(rpn.expr_to_rpn(str((4*x - sympy.log(x**2)) / (x - 2))))
+        expr = parse_rpn(rpn.expr_to_rpn(str(f)))
 
         s = SummationBlock(lower, upper, expr)
         self.set_block(EqualBlock("f(x)", s))
@@ -664,14 +676,12 @@ if __name__ == "__main__":
     def _test_something(button, view):
         # Una función para probar algo como callback
         x = sympy.Symbol("x")
-        f = 3*x**2
+        f = 3*x**2+2+sympy.pi*x+sympy.E*x**2
         block = parse_rpn(rpn.expr_to_rpn(str(f)))
 
-        mul = view.block.children[0]
-        a = LnBlock(block)
-        b = AddBlock(TextBlock("x"), DivisionBlock(TextBlock("x"), TextBlock("3")))
-        mul.set_children(a, b)
-
+        s = view.block.children[1]
+        d = s.children[2]
+        d.set_children(a=block)
 
     w = Gtk.Window()
     #w.set_default_size(600, 480)
@@ -691,7 +701,7 @@ if __name__ == "__main__":
 
     b = Gtk.Button("test")  # Un botón de pruebas
     b.connect("clicked", _test_something, view)
-    # v.pack_end(b, False, False, 0)
+    v.pack_end(b, False, False, 0)
 
     w.show_all()
     Gtk.main()

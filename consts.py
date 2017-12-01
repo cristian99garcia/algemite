@@ -86,11 +86,23 @@ MATH_CHARS = {
 
 class Chars:
     # Caracteres ASCII
-    PERTENECIENTE = "∈"
+    BELONGS = "∈"
     TREND = "→"
     INFINITY = "∞"
     PI = "π"
     CAPITAL_SIGMA = "Σ"
+    E = "ℯ"
+    HORIZONTAL_BAR = "─"
+
+    @classmethod
+    def get_char(self, text, other):
+        if text.lower() == "pi":
+            return Chars.PI
+
+        elif text.lower() == "e":
+            return Chars.E
+
+        return other
 
 
 class Branch:

@@ -418,6 +418,24 @@ def interval_to_string(interval):
     return "()"
 
 
+def get_continuity(function):
+    """
+    Devuelve el intervalo de las x para los que f es continua.
+    """
+
+    problems = get_existence_problems(function)
+    domain = get_domain(function)
+
+    for value in problems:
+        right_hand_limit = sympy.limit(function, x, value, "+")
+        left_hand_limit = sympy.limit(function, x, value, "-")
+
+        if right_hand_limit != left_hand_limit:
+            domain -= Interval(value, value)
+
+    return domain
+
+
 if __name__ == "__main__":
     from analisis import Analizer
 
@@ -466,24 +484,6 @@ if __name__ == "__main__":
     #from sympy import sqrt
     #ine = ((-sqrt(3)/3 < x) & (x < -sqrt(7)/3 + 1/3)) | ((sqrt(3)/3 < x) & (x < 1/3 + sqrt(7)/3))
     #print inequation_to_interval(ine)
-
-
-def get_continuity(function):
-    """
-    Devuelve el intervalo de las x para los que f es continua.
-    """
-
-    problems = get_existence_problems(function)
-    domain = get_domain(function)
-
-    for value in problems:
-        right_hand_limit = sympy.limit(function, x, value, "+")
-        left_hand_limit = sympy.limit(function, x, value, "-")
-
-        if right_hand_limit != left_hand_limit:
-            domain -= Interval(value, value)
-
-    return domain
 
 
 def get_local_dir():

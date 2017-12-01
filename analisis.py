@@ -96,7 +96,7 @@ class Analizer(LowAnalizer):
             string += "Continuidad: f es continua en todo su dominio\n"
 
         else:
-            string += "Continuidad: f es continua para los x %s %s\n" % (Chars.PERTENECIENTE, interval_to_string(self.continuity))
+            string += "Continuidad: f es continua para los x %s %s\n" % (Chars.BELONGS, interval_to_string(self.continuity))
 
         # Ramas
         # FIXME: Puede que no exista una rama
