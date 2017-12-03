@@ -20,10 +20,12 @@ from utils import (
     inequation_to_interval,
     interval_to_string,
     set_to_string,
+    subclass_in,
 )
 
 
 from math_view import (
+    Block,
     TextBlock,
     EqualBlock,
     TrendBlock,
@@ -33,6 +35,8 @@ from consts import (
     Branch,
     Chars,
 )
+
+FONT_SIZE = 15
 
 
 class Row(Gtk.ListBoxRow):
@@ -61,6 +65,9 @@ class Row(Gtk.ListBoxRow):
         """
 
     def add_child(self, widget):
+        if subclass_in(widget.__class__, [Block, MathView]):
+            widget.set_font_size(FONT_SIZE)
+
         widget.set_halign(Gtk.Align.START)
         widget.set_valign(Gtk.Align.CENTER)
         self._hbox.pack_start(widget, False, False, 0)
@@ -92,13 +99,6 @@ class ListBox(Gtk.VBox):
         self.lbox = Gtk.ListBox()
         self.lbox.set_selection_mode(Gtk.SelectionMode.NONE)
         self.pack_start(self.lbox, False, False, 0)
-
-    def make_row(self, text):  
-        row = Row(text)
-        label = Gtk.Label(text)
-        self.lbox.add(row)
-
-        return row
 
     def make_row_with_child(self, child):
         row = Row()
@@ -136,7 +136,6 @@ class Window(Gtk.ApplicationWindow):
 
     def analyze(self, expr):
         name = "f"
-        fsize = 15
 
         self.analyzer = Analyzer(expr)
         self.function_view.set_from_expression(expr, name=name + "(x)")
@@ -146,25 +145,21 @@ class Window(Gtk.ApplicationWindow):
         self.box.pack_start(box, False, False, 0)
 
         domain_block = EqualBlock(TextBlock("D(f)"), TextBlock(interval_to_string(self.analyzer.domain)))
-        domain_block.set_font_size(fsize)
         box.make_row_with_child(domain_block)
 
         box = ListBox("Raíces")
         self.box.pack_start(box, False, False, 0)
 
         roots_block = TextBlock(set_to_string(self.analyzer.roots.keys()))
-        roots_block.set_font_size(fsize)
         box.make_row_with_child(roots_block)
 
         box = ListBox("Signo")
         self.box.pack_start(box, False, False, 0)
 
         positive_block = TextBlock("+  " + interval_to_string(self.analyzer.positive))
-        positive_block.set_font_size(fsize)
         box.make_row_with_child(positive_block)
 
         negative_block = TextBlock("-  " + interval_to_string(self.analyzer.negative))
-        negative_block.set_font_size(fsize)
         box.make_row_with_child(negative_block)
 
         box = ListBox("Continuidad")
@@ -176,7 +171,6 @@ class Window(Gtk.ApplicationWindow):
         else:
             block = TextBlock("f es continua para los x %s %s\n" % (Chars.BELONGS, interval_to_string(self.analyzer.continuity)))
 
-        block.set_font_size(fsize)
         box.make_row_with_child(block)
 
         box = ListBox("Ramas")
@@ -184,82 +178,88 @@ class Window(Gtk.ApplicationWindow):
 
         if self.analyzer.branches[sympy.oo] is not None:
             block = TextBlock("f posee %s cuando" % Branch.get_name(*self.analyzer.branches[sympy.oo]).lower())
-            block.set_font_size(fsize)
             row = box.make_row_with_child(block)
             trend_block = TrendBlock(TextBlock("x"), TextBlock("+" + Chars.INFINITY))
-            trend_block.set_font_size(fsize)
             row.add_child(trend_block)
 
         if self.analyzer.branches[-sympy.oo] is not None:
             block = TextBlock("f posee %s cuando" % Branch.get_name(*self.analyzer.branches[-sympy.oo]).lower())
-            block.set_font_size(fsize)
             row = box.make_row_with_child(block)
             trend_block = TrendBlock(TextBlock("x"), TextBlock("-" + Chars.INFINITY))
-            trend_block.set_font_size(fsize)
             row.add_child(trend_block)
 
         box = ListBox("Crecimiento")
         self.box.pack_start(box, False, False, 0)
 
         block = MathView.new_from_expression(self.analyzer.derived, name + "'(x)")
-        block.set_font_size(fsize)
-        block.set_margin_right(0)
         box.make_row_with_child(block)
 
         block = TextBlock(name + " crece en %s" % interval_to_string(self.analyzer.derived_things.positive))
-        block.set_font_size(fsize)
         box.make_row_with_child(block)
 
         block = TextBlock(name + " decrece en %s" % interval_to_string(self.analyzer.derived_things.negative))
-        block.set_font_size(fsize)
         box.make_row_with_child(block)
 
         mins, maxs = self.analyzer.get_minimums_and_maximums()
 
-        if mins or maxs:
-            if mins:
-                block = TextBlock("Mínimos: ")
-                block.set_font_size(fsize)
-                row = box.make_row_with_child(block)
+        if mins:
+            block = TextBlock("Mínimos: ")
+            row = box.make_row_with_child(block)
 
-                for point in mins:
-                    block = TextBlock("(%s; %s)" % (str(point[0]), str(point[1])))
-                    block.set_font_size(fsize)
-                    row.add_child(block)
+            for point in mins:
+                # FIXME: Es importante usar un bloque como el anterior "PointBlock"
+                # por si un valor del punto es una expresión, por ejemplo: sqrt(2)
+                block = TextBlock("(%s; %s)" % (str(point[0]), str(point[1])))
+                row.add_child(block)
 
-            if maxs:
-                block = TextBlock("Máximos: ")
-                block.set_font_size(fsize)
-                row = box.make_row_with_child(block)
+        if maxs:
+            block = TextBlock("Máximos: ")
+            row = box.make_row_with_child(block)
 
-                for point in maxs:
-                    block = TextBlock("(%s; %s)" % (str(point[0]), str(point[1])))
-                    block.set_font_size(fsize)
-                    row.add_child(block)
+            for point in maxs:
+                # FIXME: Es importante usar un bloque como el anterior "PointBlock"
+                # por si un valor del punto es una expresión, por ejemplo: sqrt(2)
+                block = TextBlock("(%s; %s)" % (str(point[0]), str(point[1])))
+                row.add_child(block)
 
-        """
-        # Concavidad
-        string += "Concavidad: f''(x) = %s\n" % self.derived2
+        box = ListBox("Concavidad")
+        self.box.pack_start(box, False, False, 0)
 
-        if self.derived2_things.positive.__class__ != EmptySet:
-            string += "    f tiene concavidad positiva en: %s\n" % interval_to_string(self.derived2_things.positive)
+        block = MathView.new_from_expression(self.analyzer.derived2, name + "''(x)")
+        box.make_row_with_child(block)
 
-        if self.derived2_things.negative.__class__ != EmptySet:
-            string += "    f tiene concavidad negativa en: %s" % interval_to_string(self.derived2_things.negative)
+        if self.analyzer.derived2_things.positive.__class__ != sympy.EmptySet:
+            # FIXME: Es importante usar un bloque como el anterior "PointBlock"
+            # por si un extremo del intervalo es una expresión, por ejemplo: sqrt(2)
+            block = TextBlock("f tiene concavidad positiva en: %s" % interval_to_string(self.analyzer.derived2_things.positive))
 
-        # Puntos de inflexión
-        if self.derived2_things.roots:
-            _string = ""
-            symbol = self.derived2.free_symbols.copy().pop()
+        else:
+            block = TextBlock("f nunca tiene concavidad positiva.")
 
-            for root in self.derived2_things.roots.keys():
-                y = self.derived2.subs({symbol: root})
-                _string += "(%d; %s), " % (root, str(y))
+        box.make_row_with_child(block)
 
-            if _string != "":
-                string += "\n    Puntos de inflexción: " + _string[:-2]
+        if self.analyzer.derived2_things.negative.__class__ != sympy.EmptySet:
+            # FIXME: Es importante usar un bloque como el anterior "PointBlock"
+            # por si un extremo del intervalo es una expresión, por ejemplo: sqrt(2)
+            block = TextBlock("f tiene concavidad negativa en: %s" % interval_to_string(self.analyzer.derived2_things.negative))
 
-        return string
-        """
+        else:
+            block = TextBlock("f nunca tiene concavidad negativa.")
+
+        box.make_row_with_child(block)
+
+        _analyzer = Analyzer(self.analyzer.derived)
+        mins, maxs = _analyzer.get_minimums_and_maximums()
+        inflection_points = mins + maxs
+
+        if inflection_points:
+            block = TextBlock("Puntos de inflexión: ")
+            row = box.make_row_with_child(block)
+
+            for point in inflection_points:
+                # FIXME: Es importante usar un bloque como el anterior "PointBlock"
+                # por si un valor del punto es una expresión, por ejemplo: sqrt(2)
+                block = TextBlock("(%s; %s)" % (str(point[0]), str(point[1])))
+                row.add_child(block)
 
         self.show_all()

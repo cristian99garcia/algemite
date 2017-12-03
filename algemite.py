@@ -38,7 +38,7 @@ class Algemite(Gtk.Application):
             self.window = Window(application=self)
 
             if TESTING:
-                expr = x ** 2 - 2*x 
+                expr = x**3 + x ** 2 - 2*x
                 self.window.analyze(expr)
 
 
