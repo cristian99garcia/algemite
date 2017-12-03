@@ -27,7 +27,6 @@ from math_view import (
     TextBlock,
     EqualBlock,
     TrendBlock,
-    PointBlock,
 )
 
 from consts import (
