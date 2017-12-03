@@ -711,63 +711,6 @@ class LimitBlock(ContainerBlock):
             self.function_block.set_font_size(size)
 
 
-class PointBlock(ContainerBlock):
-
-    def __init__(self, x=None, y=None):
-        ContainerBlock.__init__(self)
-
-        self.set_orientation(Gtk.Orientation.HORIZONTAL)
-
-        self.x = None
-        self.y = None
-
-        self._plabel1 = TextBlock("(")
-        self.pack_start(self._plabel1, False, False, 0)
-
-        self.set_label(";")
-        self.reorder_child(self.label, 1)
-
-        self._plabel2 = TextBlock(")")
-        self.pack_end(self._plabel2, False, False, 0)
-
-        self.set_children(x, y)
-        self.set_font_size(self.label.get_font_size())
-
-    def set_children(self, x=None, y=None):
-        if x is not None:
-            if self.x is not None:
-                self.remove(self.x)
-
-            self.x = x
-            self.x.set_halign(Gtk.Align.START)
-            self.pack_start(self.x, False, False, 0)
-            self.reorder_child(self._plabel1, 0)
-
-        if y is not None:
-            if self.y is not None:
-                self.remove(self.y)
-
-            self.y = y
-            self.y.set_halign(Gtk.Align.START)
-            self.pack_end(self.y, False, False, 0)
-            self.reorder_child(self._plabel2, 0)
-
-        self.children = [self.x, self.y]
-
-        self.show_all()
-
-    def set_font_size(self, size):
-        self._plabel1.set_font_size(size)
-        self.label.set_font_size(size)
-        self._plabel2.set_font_size(size)
-
-        if self.x is not None:
-            self.x.set_font_size(size)
-
-        if self.y is not None:
-            self.y.set_font_size(size)
-
-
 ONE_VALUE = {
     "ln": LnBlock,
     #"log": Log10Block,
