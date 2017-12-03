@@ -223,24 +223,20 @@ class Window(Gtk.ApplicationWindow):
                 block.set_font_size(fsize)
                 row = box.make_row_with_child(block)
 
-                for p in mins:
-                    b1 = MathView.new_from_expression(1)#p[0])
-                    b2 = MathView.new_from_expression(1)#p[1])
-                    p = PointBlock(b1, b2)
-                    p.set_font_size(fsize)
-                    row.add_child(p)
+                for point in mins:
+                    block = TextBlock("(%s; %s)" % (str(point[0]), str(point[1])))
+                    block.set_font_size(fsize)
+                    row.add_child(block)
 
             if maxs:
                 block = TextBlock("Máximos: ")
                 block.set_font_size(fsize)
                 row = box.make_row_with_child(block)
 
-                for p in maxs:
-                    b1 = MathView.new_from_expression(1)#p[0])
-                    b2 = MathView.new_from_expression(1)#p[1])
-                    p = PointBlock(b1, b2)
-                    p.set_font_size(fsize)
-                    row.add_child(p)
+                for point in maxs:
+                    block = TextBlock("(%s; %s)" % (str(point[0]), str(point[1])))
+                    block.set_font_size(fsize)
+                    row.add_child(block)
 
         """
         # Concavidad

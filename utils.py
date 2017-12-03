@@ -458,6 +458,17 @@ def set_to_string(_set, alt=None):
     return string
 
 
+def points_to_string(points):
+    string = ""
+    for point in points:
+        string += "(%s; %s) " % (str(point[0]), str(point[1])) 
+
+    if len(string) > 0:
+        return string[:-1]
+
+    return string
+
+
 def get_local_dir():
     return os.path.abspath(os.path.dirname(__file__))
 

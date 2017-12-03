@@ -22,6 +22,7 @@ from utils import (
     inequation_to_interval,
     interval_to_string,
     set_to_string,
+    points_to_string,
 )
 
 from consts import (
@@ -140,17 +141,11 @@ class Analyzer(LowAnalyzer):
         if mins or maxs:
             if maxs:
                 string += "    Máximos: "
-                for p in maxs:
-                    string += "(%s; %s) " % (str(p[0]), str(p[1])) 
-
-                string = string[:-1] + "\n"
+                string += points_to_string(maxs) + "\n"
 
             if mins:
                 string += "    Mínimos: "
-                for p in mins:
-                    string += "(%s; %s) " % (str(p[0]), str(p[1])) 
-
-                string = string[:-1] + "\n"
+                string += points_to_string(mins) + "\n"
 
         # Concavidad
         string += "Concavidad: f''(x) = %s\n" % self.derived2
@@ -181,7 +176,7 @@ if __name__ == "__main__":
     #f = -6 / x**3
     #f = -2*x**3 + 4*x
     #f = 3*x / (sympy.E**(3*x))
-    f = x**2
+    f = x**2-2*x
 
     #f = 3*sympy.exp(x)/(2*x)
     a = Analyzer(f)
