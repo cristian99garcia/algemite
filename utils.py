@@ -31,7 +31,8 @@ from sympy.core.relational import (
 
 from consts import (
     Branch,
-    REALS
+    REALS,
+    Chars,
 )
 
 EXISTENCIAL_PROBLEMS_OPS = [
@@ -399,7 +400,8 @@ def interval_to_string(interval):
         if end in interval:
             e = "]"
 
-        return "%s%s; %s%s" % (s, str(start), str(end), e)
+        text = "%s%s; %s%s" % (s, str(start), str(end), e)
+        return text.replace("oo", Chars.INFINITY)
 
     elif interval.__class__ == sympy.sets.Union:
         string = ""
@@ -436,54 +438,24 @@ def get_continuity(function):
     return domain
 
 
-if __name__ == "__main__":
-    from analisis import Analizer
+def set_to_string(_set, alt=None):
+    if type(_set) == set:
+        _set = list(_set)
 
-    # Funciones "simples":
-    #f = 3*x**2 - 2*x
-    #f = -6 / x**3
-    #f = sympy.E**x/x
+    if not _set:
+        return alt or Chars.EMPTY_SET
 
-    # Funciones logarítmicas
-    f = sympy.log(x + sympy.log(2*x))
-    #f = sympy.log(sympy.log((2*x+1)/(3*x-1) + sympy.log(3*sympy.E**x)))
-    #f = sympy.log((2*x+1) / (3*x**2-1))
+    string = "{ "
 
-    a = Analizer(f)
-    print a
+    idx = 0
+    _len = len(_set)
 
-    #positive, negative = get_sign(f)
-    #print negative
-    #print "P:", interval_to_string(positive), positive, "\n"
-    #print "N:", interval_to_string(negative)
-    #logs = search_for_logs(f)
-    # print f, get_domain(f)
+    while idx < _len - 1:
+        string += str(_set[idx]) + "; "
+        idx += 1
 
-    #positive, negative = get_sign(f)
-    #print positive, "\n", negative
-    #print "\nP:", interval_to_string(positive)
-    #print "N:", interval_to_string(negative)
-
-    #print a
-    #print inequation_to_interval(a), "\n\n", b
-    #print inequation_to_interval(b), "\n"
-    #print inequation_to_interval(sympy.solve(ineq))
-
-    #inequation = sympy.solve(f > 0)
-    #print get_sign(f)[0], get_sign(f)[1]
-    #print sympy.solve(f > 0)
-    #get_sign(f)
-
-    #print inequation_to_interval(2.2 <= x)
-
-    #inequation = (x > 7) & (x > -3) & (x > -5) & (x < 10)
-    #print inequation_to_interval(inequation)
-
-    #print get_sign(f)
-
-    #from sympy import sqrt
-    #ine = ((-sqrt(3)/3 < x) & (x < -sqrt(7)/3 + 1/3)) | ((sqrt(3)/3 < x) & (x < 1/3 + sqrt(7)/3))
-    #print inequation_to_interval(ine)
+    string += str(_set[-1]) + " }"
+    return string
 
 
 def get_local_dir():

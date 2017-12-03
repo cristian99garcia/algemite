@@ -239,6 +239,8 @@ class TwoValuesBlock(HContainerBlock):
         self.a = a
         self.b = b
 
+        self.label.set_margin_left(5)  # FIXME: Depende de la fuente
+        self.label.set_margin_end(5)   # FIXME: Depende de la fuente
         self.set_children(a, b)
 
     def set_children(self, a=None, b=None):
@@ -252,6 +254,9 @@ class TwoValuesBlock(HContainerBlock):
 
         self.children = [self.a, self.b]
         self.show_all()
+
+    def get_font_size(self):
+        return self.label.get_font_size()
 
 
 class AddBlock(TwoValuesBlock):
@@ -280,6 +285,7 @@ class MultiplicationBlock(TwoValuesBlock):
         self._plabelb1 = TextBlock("(")
         self._plabelb2 = TextBlock(")")
 
+        self.set_label("×")
         self.set_children(a, b)
         self.set_font_size(self.label.get_font_size())
 
@@ -326,19 +332,26 @@ class MultiplicationBlock(TwoValuesBlock):
 
         if (_a and not _b) or (_b and not _a):
             self.set_label("")
+            self.label.set_margin_left(0)
+            self.label.set_margin_end(0)
 
         else:
             if self.a.__class__ == self.b.__class__ == TextBlock:
                 _text_a = self.a.get_text()
                 _text_b = self.b.get_text()
 
-                if (_text_a == "x" and _text_b != "x") or \
-                   (_text_b == "x" and _text_a != "x"):
-
+                if _text_b == "x" and _text_a != "x":
                     self.set_label("")
+                    self.label.set_margin_left(0)
+                    self.label.set_margin_end(0)
+
+                elif _text_a == "x" and _text_b != "x":
+                    self.set_children(self.b, self.a)
 
                 else:
                     self.set_label("×")
+                    self.label.set_margin_left(5)
+                    self.label.set_margin_end(5)
 
     def set_font_size(self, size):
         for block in [self.label, self._plabela1, self._plabela2, self._plabelb1, self._plabelb2, self.a, self.b]:
@@ -394,9 +407,9 @@ class LogBlock(ContainerBlock):
         else:
             self.base_block = TextBlock("0")
 
-        self.__vbox = Gtk.VBox()
-        self.pack_start(self.__vbox, False, False, 0)
-        self.__vbox.pack_end(self.base_block, False, False, 0)
+        self._vbox = Gtk.VBox()
+        self.pack_start(self._vbox, False, False, 0)
+        self._vbox.pack_end(self.base_block, False, False, 0)
 
         self._plabel1 = TextBlock("(")
         self.pack_start(self._plabel1, False, False, 0)
@@ -447,11 +460,12 @@ class LogBlock(ContainerBlock):
             self.remove(self.__vbox)
 
     def set_font_size(self, size):
-        self.label.set_font_size(size)
-        self._plabel1.set_font_size(size)
-        self._plabel2.set_font_size(size)
-        self.base_block.set_font_size(size / 2)
-        self.result_block.set_font_size(size)
+        for block in [self.label, self._plabel1, self._plabel2, self.result_block]:
+            if block is not None:
+                block.set_font_size(size)
+
+        if self.base_block is not None:
+            self.base_block.set_font_size(size / 2)
 
 
 class Log10Block(LogBlock):
@@ -487,30 +501,51 @@ class PowerBlock(ContainerBlock):
     def __init__(self, base=None, exponent=None):
         ContainerBlock.__init__(self)
 
+        self.base_block = None
+        self.exponent_block = None
+
         self.remove(self.label)
 
-        if base is not None:
-            self.base_block = base
-        else:
-            self.base_block = TextBlock("0")
+        self._vbox = Gtk.VBox()
+        self.pack_end(self._vbox, False, False, 0)
 
-        self.pack_start(self.base_block, False, False, 0)
-
-        if exponent is not None:
-            self.exponent_block = exponent
-        else:
-            self.exponent_block = TextBlock("0")
-
-        self.__vbox = Gtk.VBox()
-        self.pack_end(self.__vbox, False, False, 5)
-
-        self.__vbox.pack_start(self.exponent_block, False, False, 0)
-
+        self.set_children(base, exponent)
         self.set_font_size(self.label.get_font_size())
 
+    def set_children(self, base=None, exponent=None):
+        if base is not None:
+            if self.base_block is not None:
+                self.remove(self.base_block)
+
+            self.base_block = base
+            self.pack_start(self.base_block, False, False, 0)
+
+        if exponent is not None:
+            if self.exponent_block is not None:
+                self._vbox.remove(self.exponent_block)
+
+            self.exponent_block = exponent
+            self.exponent_block.set_halign(Gtk.Align.START)
+            self.exponent_block.set_valign(Gtk.Align.START)
+            self._vbox.pack_start(self.exponent_block, False, False, 0)
+
+        self.children = [self.base_block, self.exponent_block]
+
+    def get_font_size(self):
+        if self.base_block is not None:
+            return self.base_block.get_font_size() / 2
+
+        elif self.exponent_block is not None:
+            return self.exponent_block.get_font_size()
+
+        return 0
+
     def set_font_size(self, size):
-        self.base_block.set_font_size(size)
-        self.exponent_block.set_font_size(size / 2)
+        if self.base_block is not None:
+            self.base_block.set_font_size(size)
+
+            if self.exponent_block is not None:
+                self.exponent_block.set_font_size(self.base_block.get_font_size() / 2)
 
 
 class SummationBlock(ContainerBlock):
@@ -582,6 +617,157 @@ class SummationBlock(ContainerBlock):
             self.expression_block.set_font_size(size / 2)
 
 
+class IntegralBlock(ContainerBlock):
+
+    """
+    TODO
+    """
+
+    def __init__(self):
+        ContainerBlock.__init__(self)
+
+        self.set_orientation(Gtk.Orientation.HORIZONTAL)
+
+        self.set_label(Chars.INTEGRAL)
+        self.set_font_size(68)
+
+
+class TrendBlock(TwoValuesBlock):
+
+    def __init__(self, a=None, b=None):
+        TwoValuesBlock.__init__(self, a, b)
+
+        self.set_label(Chars.TREND)
+
+
+class OneSidedValueBlock(PowerBlock):
+
+    """
+    Valor por derecha/izquierda, comúnmente utilizado en el
+    cálculo de límites.
+    """
+
+    def __init__(self, value=None, side=None):
+        """
+        Side puede ser "+", "-" o un TextBlock
+        """
+
+        PowerBlock.__init__(self)
+
+        self.set_children(value, side)
+
+    def set_children(self, value=None, side=None):
+        if side in ["+", "-"]:
+            side = TextBlock(side)
+
+        PowerBlock.set_children(self, value, side)
+
+
+class LimitBlock(ContainerBlock):
+
+    def __init__(self, trend=None, function=None):
+        ContainerBlock.__init__(self)
+
+        self.trend_block = None
+        self.function_block = None
+
+        self._vbox = Gtk.VBox()
+        self.pack_start(self._vbox, False, False, 0)
+
+        self.set_orientation(Gtk.Orientation.HORIZONTAL)
+        self.set_label("lim")
+        self.remove(self.label)
+        self._vbox.pack_start(self.label, False, False, 0)
+
+        self.set_children(trend, function)
+        self.set_font_size(self.label.get_font_size())
+
+    def set_children(self, trend=None, function=None):
+        if trend is not None:
+            if self.trend_block is not None:
+                self._vbox.remove(self.trend_block)
+
+            self.trend_block = trend
+            self._vbox.pack_end(self.trend_block, False, False, 0)
+
+        if function is not None:
+            if self.function_block is not None:
+                self.remove(self.function_block)
+
+            self.function_block = function
+            self.function_block.set_valign(Gtk.Align.START)
+            self.pack_end(self.function_block, False, False, 5)
+
+        self.children = [self.trend_block, self.function_block]
+
+    def set_font_size(self, size):
+        self.label.set_font_size(size)
+        self._vbox.set_margin_end(size / 2.5)
+
+        if self.trend_block is not None:
+            self.trend_block.set_font_size(size / 2)
+
+        if self.function_block is not None:
+            self.function_block.set_font_size(size)
+
+
+class PointBlock(ContainerBlock):
+
+    def __init__(self, x=None, y=None):
+        ContainerBlock.__init__(self)
+
+        self.set_orientation(Gtk.Orientation.HORIZONTAL)
+
+        self.x = None
+        self.y = None
+
+        self._plabel1 = TextBlock("(")
+        self.pack_start(self._plabel1, False, False, 0)
+
+        self.set_label(";")
+        self.reorder_child(self.label, 1)
+
+        self._plabel2 = TextBlock(")")
+        self.pack_end(self._plabel2, False, False, 0)
+
+        self.set_children(x, y)
+        self.set_font_size(self.label.get_font_size())
+
+    def set_children(self, x=None, y=None):
+        if x is not None:
+            if self.x is not None:
+                self.remove(self.x)
+
+            self.x = x
+            self.x.set_halign(Gtk.Align.START)
+            self.pack_start(self.x, False, False, 0)
+            self.reorder_child(self._plabel1, 0)
+
+        if y is not None:
+            if self.y is not None:
+                self.remove(self.y)
+
+            self.y = y
+            self.y.set_halign(Gtk.Align.START)
+            self.pack_end(self.y, False, False, 0)
+            self.reorder_child(self._plabel2, 0)
+
+        self.children = [self.x, self.y]
+
+        self.show_all()
+
+    def set_font_size(self, size):
+        self._plabel1.set_font_size(size)
+        self.label.set_font_size(size)
+        self._plabel2.set_font_size(size)
+
+        if self.x is not None:
+            self.x.set_font_size(size)
+
+        if self.y is not None:
+            self.y.set_font_size(size)
+
+
 ONE_VALUE = {
     "ln": LnBlock,
     #"log": Log10Block,
@@ -640,6 +826,9 @@ def parse_rpn(expression):
     return stack.pop()
 
 
+import rpn
+
+
 class MathView(Gtk.Fixed):
 
     def __init__(self):
@@ -650,13 +839,38 @@ class MathView(Gtk.Fixed):
         self.set_border_width(10)
 
         # Test settings:
-        f = (x - 2) / (4*x - sympy.ln(x**2))
-        upper = EqualBlock(TextBlock("i"), parse_rpn(rpn.expr_to_rpn(str(x**3))))
+        """
+        f = (x - 2) / (x*4 - sympy.ln(x**2))
+        upper = EqualBlock(TextBlock("i"), parse_rpn(rpn.expr_to_rpn(str(x**3-4*x**2+2))))
         lower = EqualBlock(TextBlock("i"), parse_rpn(rpn.expr_to_rpn(str(x-2))))
         expr = parse_rpn(rpn.expr_to_rpn(str(f)))
-
         s = SummationBlock(lower, upper, expr)
-        self.set_block(EqualBlock("f(x)", s))
+        """
+
+        """
+        i = sympy.Symbol("i")
+        s = sympy.Sum(x**2, (i, 0, sympy.oo))
+        print rpn.split_expr(s)
+        print rpn.expr_to_rpn(s)
+        block = parse_rpn(rpn.expr_to_rpn(s))
+
+        self.set_block(EqualBlock("f(x)", block))
+        """ 
+
+        """
+        side = OneSidedValueBlock(TextBlock("0"), "-")
+        trend = TrendBlock(TextBlock("x"), side)
+        function = parse_rpn(rpn.expr_to_rpn(x**2 - 2))
+        block = LimitBlock(trend, function)
+        block.set_font_size(120)
+        self.set_block(block)
+        """
+
+    @classmethod
+    def new_from_expression(self, expression, name=None):
+        view = MathView()
+        view.set_from_expression(expression, name)
+        return view
 
     def set_block(self, block):
         if self.block is not None:
@@ -666,10 +880,19 @@ class MathView(Gtk.Fixed):
         if self.block is not None:
             self.put(self.block, 0, 0)
 
-    def set_from_expression(self, expression):
+    def set_from_expression(self, expression, name=None):
         expr = str(expression)
         block = parse_rpn(rpn.expr_to_rpn(expr))
+
+        if name is not None:
+            block = EqualBlock(TextBlock(name), block)
+
         self.set_block(block)
+        self.show_all()
+
+    def set_font_size(self, size):
+        if self.block is not None:
+            self.block.set_font_size(size)
 
 
 if __name__ == "__main__":

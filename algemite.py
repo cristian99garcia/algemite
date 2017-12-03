@@ -3,14 +3,20 @@
 
 import gi
 import sys
+import sympy
 import signal
-import consts as C
 
-gi.require_versions(C.GI_REQUIREMENTS)
+from consts import (
+    TESTING,
+    GI_REQUIREMENTS,
+)
+
+gi.require_versions(GI_REQUIREMENTS)
 
 from gi.repository import Gtk
 
 from window import Window
+from utils import x
 
 
 class Algemite(Gtk.Application):
@@ -31,9 +37,9 @@ class Algemite(Gtk.Application):
         if not self.window:
             self.window = Window(application=self)
 
-            # if C.TESTING:
-            #     self.settings = C.TEST_SETTINGS
-            #     self.window.edit_area.set_objects(C.TEST_OBJECTS)
+            if TESTING:
+                expr = x ** 2 - 2*x 
+                self.window.analyze(expr)
 
 
 if __name__ == "__main__":

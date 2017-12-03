@@ -21,6 +21,7 @@ from utils import (
     get_continuity,
     inequation_to_interval,
     interval_to_string,
+    set_to_string,
 )
 
 from consts import (
@@ -29,10 +30,10 @@ from consts import (
 )
 
 
-class LowAnalizer(object):
+class LowAnalyzer(object):
 
     def __init__(self, function):
-        super(LowAnalizer, self).__init__()
+        super(LowAnalyzer, self).__init__()
 
         self.function = function
 
@@ -48,10 +49,10 @@ class LowAnalizer(object):
         # print "p:", self.positive
 
 
-class Analizer(LowAnalizer):
+class Analyzer(LowAnalyzer):
 
     def __init__(self, function):
-        super(Analizer, self).__init__(function)
+        super(Analyzer, self).__init__(function)
 
         # Continuidad
         self.continuity = get_continuity(self.function)
@@ -62,12 +63,33 @@ class Analizer(LowAnalizer):
         # Crecimiento
         # TODO: Extremos relativos
         self.derived = function.diff(x)
-        self.derived_things = LowAnalizer(self.derived)
+        self.derived_things = LowAnalyzer(self.derived)
 
         # Concavidad
         # TODO: Puntos de inflexión
         self.derived2 = function.diff(x).diff(x)
-        self.derived2_things = LowAnalizer(self.derived2)
+        self.derived2_things = LowAnalyzer(self.derived2)
+
+    def get_minimums_and_maximums(self):
+        maxs = []
+        mins = []
+
+        if self.derived_things.roots:
+            symbol = self.derived.free_symbols.copy().pop()
+            extrema = self.derived_things.roots.keys()
+
+            for root in extrema:
+                y = self.function.subs({symbol: root})
+
+                # FIXME: No debe ser la mejor manera de hacer esto
+                y2 = self.function.subs({symbol: root - 0.0001})
+                if y < y2:  # Decrece, es un mínimo
+                    mins.append((root, y))
+
+                else:
+                    maxs.append((root, y))
+
+        return mins, maxs
 
     def __str__(self):
         # Función
@@ -78,10 +100,7 @@ class Analizer(LowAnalizer):
 
         # Raíces
         string += "\nRaíces: "
-        if self.roots:
-            string += "{" + "; ".join([str(x) for x in self.roots]) + "}"
-        else:
-            string += "No tiene"
+        string += set_to_string(self.roots.keys(), "No tiene")
 
         # Signo
         string += "\nSigno:\n"
@@ -99,7 +118,6 @@ class Analizer(LowAnalizer):
             string += "Continuidad: f es continua para los x %s %s\n" % (Chars.BELONGS, interval_to_string(self.continuity))
 
         # Ramas
-        # FIXME: Puede que no exista una rama
         string += "Ramas:\n"
 
         if self.branches[oo] is not None:
@@ -117,23 +135,9 @@ class Analizer(LowAnalizer):
             string += "    f decrece en: %s\n" % interval_to_string(self.derived_things.negative)
 
         # Extremos relativos/absolutos
-        if self.derived_things.roots:
-            symbol = self.derived.free_symbols.copy().pop()
-            extrema = self.derived_things.roots.keys()
-            maxs = []
-            mins = []
+        mins, maxs = self.get_minimums_and_maximums()
 
-            for root in extrema:
-                y = self.function.subs({symbol: root})
-
-                # FIXME: No debe ser la mejor manera de hacer esto
-                y2 = self.function.subs({symbol: root - 0.0001})
-                if y < y2:  # Decrece, es un mínimo
-                    mins.append((root, y))
-
-                else:
-                    maxs.append((root, y))
-
+        if mins or maxs:
             if maxs:
                 string += "    Máximos: "
                 for p in maxs:
@@ -176,8 +180,9 @@ if __name__ == "__main__":
     #f = 3*x**2 - 2*x
     #f = -6 / x**3
     #f = -2*x**3 + 4*x
-    f = 3*x / (sympy.E**(3*x))
+    #f = 3*x / (sympy.E**(3*x))
+    f = x**2
 
     #f = 3*sympy.exp(x)/(2*x)
-    a = Analizer(f)
+    a = Analyzer(f)
     print str(a)

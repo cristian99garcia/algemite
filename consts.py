@@ -10,6 +10,9 @@ from sympy import (
 from sympy.core import numbers
 
 
+TESTING = True
+
+
 REALS = Interval(-oo, +oo)  # El signo de + no es necesario
 
 
@@ -86,13 +89,15 @@ MATH_CHARS = {
 
 class Chars:
     # Caracteres ASCII
-    BELONGS = "∈"
-    TREND = "→"
-    INFINITY = "∞"
-    PI = "π"
-    CAPITAL_SIGMA = "Σ"
-    E = "ℯ"
-    HORIZONTAL_BAR = "─"
+    E =                   "ℯ"
+    PI =                  "π"
+    TREND =               "→"
+    BELONGS =             "∈"
+    INFINITY =            "∞"
+    INTEGRAL =            "∫"
+    EMPTY_SET =           "∅"
+    CAPITAL_SIGMA =       "Σ"
+    HORIZONTAL_BAR =      "─"
 
     @classmethod
     def get_char(self, text, other):

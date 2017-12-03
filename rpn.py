@@ -12,6 +12,7 @@ OPERATORS = {
     "**": (20, RIGHT_ASSOC),
     "log": (6, LEFT_ASSOC),
     "ln": (6, LEFT_ASSOC),
+    "Sum": (7, RIGHT_ASSOC)
 }
 
 IGNORE_TO_SPACE = [chr(x) for x in range(97, 123)]
@@ -42,6 +43,7 @@ def splited_to_rpn(tokens):
     """
     Reverse Polish Notation.
     Source: http://andreinc.net/2010/10/05/converting-infix-to-rpn-shunting-yard-algorithm/
+    FIXME: No funciona con sumatorias
     """
 
     out = []
@@ -51,7 +53,7 @@ def splited_to_rpn(tokens):
     for token in tokens:
         if is_operator(token):
             # If token is an operator (x) [S3]
-            while len(stack) != 0 and is_operator(stack[-1]):
+            while len(stack) > 0 and is_operator(stack[-1]):
                 # [S4]
                 if (is_associative(token, LEFT_ASSOC) and cmp_precedence(token, stack[-1]) <= 0) or \
                    (is_associative(token, RIGHT_ASSOC) and cmp_precedence(token, stack[-1]) < 0):
@@ -70,7 +72,7 @@ def splited_to_rpn(tokens):
 
         elif token == ")":
             # [S9]
-            while len(stack) != 0 and stack[-1] != "(":
+            while len(stack) > 0 and stack[-1] != "(":
                 out.append(stack.pop()) # [S10]
 
             stack.pop() # [S11]
@@ -80,26 +82,40 @@ def splited_to_rpn(tokens):
 
     while len(stack) != 0:
         # [S13]
-        out.append(stack.pop())
+        s = stack.pop()
+        out.append(s)
 
     return out
 
 
 def split_expr(string):
+    if type(string) != str:
+        string = str(string)
+
     tokens = []
-    obligatory = ["(", ")"]
-    ignore = [" "]
+    obligatory = ["(", ")", ","]
+    ignore = [" ", ","]
 
     for char in string:
         if char in ignore:
+            if char in obligatory:
+                tokens.append("")
+
             continue
+
+        if tokens and len(tokens[-1]) >= 1:
+            last_char = tokens[-1][-1]
+        else:
+            last_char = ""
+
+        prev = ""
 
         if not tokens or char in obligatory:
+            if last_char == "":
+                tokens = tokens[:-1]
+
             tokens.append(char)
             continue
-
-        last_char = tokens[-1][-1]
-        prev = ""
 
         if len(tokens) > 2:
             prev = tokens[-2]
@@ -112,6 +128,7 @@ def split_expr(string):
 
         else:
             tokens.append(char)
+
 
     return tokens
 
@@ -131,6 +148,11 @@ def expr_to_rpn(expr, blocks=False):
 if __name__ == "__main__":
     import sympy
 
-    expr = str(sympy.log(-3*sympy.E+15)*((x**2)-1)/(x+2))
+    #expr = str(sympy.log(-3*sympy.E+15)*((x**2)-1)/(x+2))
+    i = sympy.Symbol("i")
+    x = sympy.Symbol("x")
+    expr = sympy.Sum(x**2, (i, 0, sympy.oo))
+
     print expr
-    print split_expr(expr)
+    print split_expr(str(expr))
+    print splited_to_rpn(split_expr(str(expr)))
