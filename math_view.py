@@ -151,6 +151,9 @@ class ContainerBlock(Gtk.Box, Block):
     def set_label(self, text):
         self.label.set_text(text)
 
+    def get_label(self):
+        return self.label.get_text()
+
     def set_label_widget(self, label):
         if self.label in self.get_children():
             self.remove(self.label)
@@ -183,6 +186,10 @@ class ContainerBlock(Gtk.Box, Block):
 
             else:
                 new_child = TextBlock(str(new_child))
+
+        parent = new_child.get_parent()
+        if parent is not None:
+            parent.remove(new_child)
 
         if start:
             self.pack_start(new_child, a, b, s)
@@ -243,13 +250,17 @@ class TwoValuesBlock(HContainerBlock):
         self.label.set_margin_end(5)   # FIXME: Depende de la fuente
         self.set_children(a, b)
 
-    def set_children(self, a=None, b=None):
+    def set_children(self, a=None, b=None, c=None):
         if a is not None:
             self.a = a
+            self.a.set_hexpand(False)
+            self.a.set_vexpand(False)
             self.replace_child_at(0, a)
 
         if b is not None:
             self.b = b
+            self.b.set_hexpand(False)
+            self.b.set_vexpand(False)
             self.replace_child_at(1, b, False)
 
         self.children = [self.a, self.b]
@@ -293,7 +304,7 @@ class MultiplicationBlock(TwoValuesBlock):
         pa = self.a
         pb = self.b
 
-        TwoValuesBlock.set_children(self, a=a, b=b)
+        TwoValuesBlock.set_children(self, a=a, b=b, c="nri")
 
         multiple = [AddBlock, SubtractBlock]
         _a = current_multple = subclass_in(self.a.__class__, multiple)
@@ -333,7 +344,7 @@ class MultiplicationBlock(TwoValuesBlock):
         if (_a and not _b) or (_b and not _a):
             self.set_label("")
             self.label.set_margin_left(0)
-            self.label.set_margin_end(0)
+            self.label.set_margin_right(0)
 
         else:
             if self.a.__class__ == self.b.__class__ == TextBlock:
@@ -383,6 +394,17 @@ class DivisionBlock(TwoValuesBlock):
             label.set_label(Chars.HORIZONTAL_BAR * w)
 
         self.label.add_tick_callback(queue)
+
+    def set_children(self, a=None, b=None):
+        # Centrar los hijos evita la posibilidad de que se expandan
+        # infinitamente al cambiar el tamaño del label
+        if a is not None:
+            a.set_halign(Gtk.Align.CENTER)
+
+        if b is not None:
+            b.set_halign(Gtk.Align.CENTER)
+
+        TwoValuesBlock.set_children(self, a, b)
 
 
 class EqualBlock(TwoValuesBlock):
@@ -445,19 +467,19 @@ class LogBlock(ContainerBlock):
 
         if base is not None:
             if self.base_block is not None:
-                self.__vbox.remove(self.base_block)
+                self._vbox.remove(self.base_block)
 
             self.base_block = base
-            self.__vbox.pack_end(self.base_block, False, False, 0)
+            self._vbox.pack_end(self.base_block, False, False, 0)
 
         self.children = [self.base_block, self.result_block]
 
     def show_base(self, show=True):
-        if show and self.__vbox not in self.get_children():
-            self.pack_end(self.__vbox, False, False, 0)
+        if show and self._vbox not in self.get_children():
+            self.pack_end(self._vbox, False, False, 0)
 
-        elif not show and self.__vbox in self.get_children():
-            self.remove(self.__vbox)
+        elif not show and self._vbox in self.get_children():
+            self.remove(self._vbox)
 
     def set_font_size(self, size):
         for block in [self.label, self._plabel1, self._plabel2, self.result_block]:
@@ -544,6 +566,7 @@ class PowerBlock(ContainerBlock):
         if self.base_block is not None:
             self.base_block.set_font_size(size)
 
+            # FIXME: Y si no hay base_block ?
             if self.exponent_block is not None:
                 self.exponent_block.set_font_size(self.base_block.get_font_size() / 2)
 
@@ -739,7 +762,7 @@ class PointBlock(ContainerBlock):
                 self.remove(self.x)
 
             self.x = x
-            self.x.set_halign(Gtk.Align.START)
+            self.x.set_valign(Gtk.Align.CENTER)
             self.pack_start(self.x, False, False, 0)
             self.reorder_child(self._plabel1, 0)
 
@@ -748,7 +771,7 @@ class PointBlock(ContainerBlock):
                 self.remove(self.y)
 
             self.y = y
-            self.y.set_halign(Gtk.Align.START)
+            self.y.set_valign(Gtk.Align.CENTER)
             self.pack_end(self.y, False, False, 0)
             self.reorder_child(self._plabel2, 0)
 
@@ -759,6 +782,7 @@ class PointBlock(ContainerBlock):
     def set_font_size(self, size):
         self._plabel1.set_font_size(size)
         self.label.set_font_size(size)
+        self.label.set_margin_right(size / 3)
         self._plabel2.set_font_size(size)
 
         if self.x is not None:
@@ -768,10 +792,103 @@ class PointBlock(ContainerBlock):
             self.y.set_font_size(size)
 
 
+class RootBlock(ContainerBlock):
+
+    def __init__(self, radicand=None, index=None):
+        ContainerBlock.__init__(self)
+
+        self.radicand_block = None
+        self.index_block = None
+
+        self.set_orientation(Gtk.Orientation.HORIZONTAL)
+        self.set_label(Chars.RADIX)
+
+        self._vbox = Gtk.VBox()
+        self.pack_start(self._vbox, False, False, 0)
+
+        self.remove(self.label)
+        self.pack_start(self.label, False, False, 0)
+
+        # TODO: Borrar los paréntesis y alargar el signo de
+        # raíz cuadrada en la parte superior
+        self._plabel1 = TextBlock("(")
+        self.pack_start(self._plabel1, False, False, 0)
+
+        self._plabel2 = TextBlock(")")
+        self.pack_end(self._plabel2, False, False, 0)
+
+        self.set_children(radicand, index)
+        #self.set_font_size(self.label.get_font_size())
+        self.set_font_size(100)
+
+    def set_children(self, radicand=None, index=None):
+        if radicand is not None:
+            if self.radicand_block is not None:
+                self.remove(self.radicand_block)
+
+            self.radicand_block = radicand
+            self.pack_start(self.radicand_block, False, False, 0)
+
+        if index is not None:
+            if self.index_block is not None:
+                self._vbox.remove(self.index_block)
+
+            self.index_block = index
+            self.index_block.set_halign(Gtk.Align.END)
+            self.index_block.set_valign(Gtk.Align.START)
+            self._vbox.pack_start(self.index_block, False, False, 0)
+
+        self.children = [self.radicand_block, self.index_block]
+
+    def set_font_size(self, size):
+        if self.radicand_block is not None:
+            self.radicand_block.set_font_size(size)
+
+        if self.index_block is not None:
+            self.index_block.set_font_size(size / 2)
+
+        self.label.set_font_size(size)
+        self._plabel1.set_font_size(size)
+        self._plabel2.set_font_size(size)
+
+    def set_show_index(self, show):
+        if show and self._vbox not in self.get_children():
+            self.pack_end(self._vbox, False, False, 0)
+
+        elif not show and self._vbox in self.get_children():
+            self.remove(self._vbox)
+
+
+class SqrtBlock(RootBlock):
+
+    def __init__(self, radicand=None):
+        RootBlock.__init__(self, radicand, TextBlock("2"))
+
+        self.set_show_index(False)
+
+
+class UnionBlock(TwoValuesBlock):
+
+    def __init__(self, a=None, b=None):
+        TwoValuesBlock.__init__(self, a, b)
+
+        self.set_label(Chars.UNION)
+
+    def set_children(self, a=None, b=None):
+        if a is not None:
+            a.set_valign(Gtk.Align.CENTER)
+
+        if b is not None:
+            b.set_valign(Gtk.Align.CENTER)
+
+        TwoValuesBlock.set_children(self, a, b)
+
+
 ONE_VALUE = {
     "ln": LnBlock,
     #"log": Log10Block,
     "log": LnBlock,
+    "sqrt": SqrtBlock,
 }
 
 
@@ -796,33 +913,40 @@ def parse_rpn(expression):
     """
 
     stack = []
- 
-    if type(expression) == str:
-        expression = expression.split(" ")
 
     one_v = ONE_VALUE.keys()
     two_v = TWO_VALUES.keys()
     three_v = TRHEE_VALUES.keys()
 
     for val in expression:
+        negative = False
+        if val.startswith("-") and val != "-":
+            negative = True
+            val = val[1:]
+
         if val in one_v:
-            stack.append(ONE_VALUE[val](stack.pop()))
+            block = ONE_VALUE[val](stack.pop())
 
         elif val in two_v:
             op1 = stack.pop()
             op2 = stack.pop()
-            stack.append(TWO_VALUES[val](op2, op1))
+            block = TWO_VALUES[val](op2, op1)
 
         elif val in three_v:
             op1 = stack.pop()
             op2 = stack.pop()
             op3 = stack.pop()
-            stack.append(TRHEE_VALUES[val](op3, op2, op1))
+            block = TRHEE_VALUES[val](op3, op2, op1)
 
         else:
             val = Chars.get_char(val, val)
-            stack.append(TextBlock(val))
- 
+            block = TextBlock(val)
+
+        if negative:
+            block.set_label("-" + block.get_label())
+
+        stack.append(block)
+
     return stack.pop()
 
 
@@ -864,6 +988,13 @@ class MathView(Gtk.Fixed):
         self.set_block(block)
         """
 
+        """
+        index = TextBlock("3")
+        radicand = TextBlock("x")
+        block = SqrtBlock(radicand)
+        self.set_block(block)
+        """
+
     @classmethod
     def new_from_expression(self, expression, name=None):
         view = MathView()
@@ -894,6 +1025,9 @@ class MathView(Gtk.Fixed):
 
 
 if __name__ == "__main__":
+    import signal, sys
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
     def _test_something(button, view):
         # Una función para probar algo como callback
         x = sympy.Symbol("x")
@@ -912,17 +1046,21 @@ if __name__ == "__main__":
     w.add(v)
 
     x = sympy.Symbol("x")
-    f = sympy.log(-3*sympy.E+15)*((x**2)-1)/(x+2)
+    #f = sympy.log(-3*sympy.E+15)*((x**2)-1)/(x+2)
 
     import rpn
 
     view = MathView()
-    #view.set_from_expression(f)
+    #view.set_from_expression("-sqrt(7)/3")
+    #view.set_from_expression("x**3+x**2-2*x")
+    view.set_from_expression(str(4*sympy.log(x)/(sympy.E**x)))
     v.pack_start(view, True, True, 0)
 
     b = Gtk.Button("test")  # Un botón de pruebas
     b.connect("clicked", _test_something, view)
-    v.pack_end(b, False, False, 0)
+    #v.pack_end(b, False, False, 0)
 
     w.show_all()
     Gtk.main()
+
+    sys.exit(1)

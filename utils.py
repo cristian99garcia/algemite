@@ -35,6 +35,7 @@ from consts import (
     Chars,
 )
 
+
 EXISTENCIAL_PROBLEMS_OPS = [
     sympy.ln,  # Ln(x) => x > 0
     sympy.Pow  # x ** -a => x != 0 si -a != 0
@@ -44,19 +45,25 @@ EXISTENCIAL_PROBLEMS_OPS = [
 x = sympy.symbols("x", real=True)
 
 
-def search_for_logs(function, logs=[]):
+def search_for(function, _class=None, found=[], check=None):
     """
     Devuelve una lista con todas las funciones
     que se encuentran dentro de un sympy.log
     """
 
-    if function.__class__ == sympy.log:
-        logs.append(function.args[0])
+    if check is None:
+        if function.__class__ == _class:
+            found.append(function.args[0])
+
+    else:
+        if check(function):
+            found.append(function.args[0])
 
     for _func in function.args:
-        search_for_logs(_func, logs)
+        if _func.__class__ != sympy.Symbol:
+            search_for(_func, _class, found)
 
-    return logs
+    return found
 
 
 def get_existence_problems(function):
@@ -107,12 +114,19 @@ def get_domain(function):
 
     domain = REALS
 
-    logs = search_for_logs(function)
-    if logs:
-        for _func in logs:
-            _logs = search_for_logs(_func, [])
-            if not _logs:  # FIXME: Resolver para logaritmos que poseen otro logaritmo.
-                domain = inequation_to_interval(sympy.solve(_func > 0))
+    logs = search_for(function, sympy.log)
+    for _func in logs:
+        _logs = search_for(_func, sympy.log, [])
+        if not _logs:  # FIXME: Resolver para logaritmos que poseen otro logaritmo.
+            interval = inequation_to_interval(sympy.solve(_func >= 0))
+            domain = domain.intersect(interval)
+
+    check = lambda a: a.__class__ == sympy.Pow and str(a.args[1]) == "1/2"
+    sqrts = search_for(function, check=check)
+
+    for _func in sqrts:
+        interval = inequation_to_interval(sympy.solve(_func >= 0))
+        domain = domain.intersect(interval)
 
     problems = get_existence_problems(function)
 
@@ -306,15 +320,19 @@ def inequation_to_interval(inequation):
 
 
 def get_sign(function):
-    logs = search_for_logs(function)
+    logs = search_for(function, _class=sympy.log, found=[])
 
     if not logs:
-        positive = inequation_to_interval(sympy.solve(function > 0))
-        negative = inequation_to_interval(sympy.solve(function < 0))
+        in1 = sympy.solve(function < 0)
+        in2 = sympy.solve(function > 0)
+        return (
+            inequation_to_interval(in1),
+            inequation_to_interval(in2)
+        )
 
     else:
         for _func in logs:
-            _logs = search_for_logs(_func, [])
+            _logs = search_for(_func, sympy.log, [])
             if not _logs:
                 negative = inequation_to_interval(sympy.solve(_func > 0))
                 negative = negative.intersect(inequation_to_interval(sympy.solve(_func < 1)))
@@ -338,9 +356,29 @@ def get_sign(function):
     """
 
     return (
+        negative or EmptySet(),
         positive or EmptySet(),
-        negative or EmptySet()
     )
+
+
+def get_interval_start(interval):
+    if interval.__class__ == Union:
+        return get_interval_start(interval.args[0])
+
+    elif interval.__class__ == Interval:
+        return interval.start
+
+    return None
+
+
+def get_interval_end(interval):
+    if interval.__class__ == Union:
+        return get_interval_end(interval.args[-1])
+
+    elif interval.__class__ == Interval:
+        return interval.end
+
+    return None
 
 
 def get_branch(function, sign):
@@ -354,10 +392,10 @@ def get_branch(function, sign):
     infinities = [oo, -1 * oo]
 
     domain = get_domain(function)
-    if trend == oo and domain.end < oo:
+    if trend == oo and get_interval_end(domain) < oo:
         return None
 
-    if trend == -oo and domain.start > -oo:
+    if trend == -oo and get_interval_start(domain) > -oo:
         return None
 
     limit1 = sympy.limit(function, x, trend)
@@ -496,3 +534,11 @@ def subclass_in(_class, classes):
             return True
 
     return False
+
+
+if __name__ == "__main__":
+    f = sympy.sqrt(x)
+    negative = inequation_to_interval(sympy.solve(f < 0))
+    #print get_domain(f)
+    #print get_sign(f)
+    print negative, interval_to_string(negative)

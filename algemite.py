@@ -38,7 +38,17 @@ class Algemite(Gtk.Application):
             self.window = Window(application=self)
 
             if TESTING:
-                expr = x**3 + x ** 2 - 2*x
+                #expr = sympy.sqrt(x) ** 4
+                #expr = 4*sympy.log(x)/(sympy.E**x)
+
+                # FIXME:
+                # expr = (x**2-4/3*x)/(sympy.E**x)
+                # D1: (-x**2 + 3*x - 1)*exp(-x)
+                # D2: (-x**2 + 7*x - 9)*exp(-x)
+
+                #expr = sympy.E**x/x**2
+
+                expr = sympy.E**x*x**2
                 self.window.analyze(expr)
 
 

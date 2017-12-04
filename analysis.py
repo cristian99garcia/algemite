@@ -45,9 +45,10 @@ class LowAnalyzer(object):
         self.roots = get_roots(self.function)
 
         # Signo
-        self.positive, self.negative = get_sign(self.function)
-
-        # print "p:", self.positive
+        self.negative, self.positive = get_sign(self.function)
+        #print "GET_SIGN", self.function, self.negative, self.positive
+        #print self.negative
+        #print self.positive
 
 
 class Analyzer(LowAnalyzer):
@@ -63,12 +64,11 @@ class Analyzer(LowAnalyzer):
 
         # Crecimiento
         # TODO: Extremos relativos
-        self.derived = function.diff(x)
+        self.derived = sympy.simplify(function.diff(x))
         self.derived_things = LowAnalyzer(self.derived)
 
         # Concavidad
-        # TODO: Puntos de inflexión
-        self.derived2 = function.diff(x).diff(x)
+        self.derived2 = sympy.simplify(self.derived.diff(x).diff(x))
         self.derived2_things = LowAnalyzer(self.derived2)
 
     def get_minimums_and_maximums(self):
@@ -105,6 +105,7 @@ class Analyzer(LowAnalyzer):
 
         # Signo
         string += "\nSigno:\n"
+        print self.positive, self.negative
         if self.positive.__class__ != EmptySet:
             string += "    + %s \n" % interval_to_string(self.positive)
 
@@ -176,7 +177,8 @@ if __name__ == "__main__":
     #f = -6 / x**3
     #f = -2*x**3 + 4*x
     #f = 3*x / (sympy.E**(3*x))
-    f = x**2-2*x
+    #f = x**2-2*x
+    f = sympy.sqrt(x)
 
     #f = 3*sympy.exp(x)/(2*x)
     a = Analyzer(f)

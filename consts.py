@@ -92,6 +92,8 @@ class Chars:
     E =                   "ℯ"
     PI =                  "π"
     TREND =               "→"
+    RADIX =               "√"
+    UNION =               "∪"
     BELONGS =             "∈"
     INFINITY =            "∞"
     INTEGRAL =            "∫"
@@ -121,11 +123,11 @@ class Branch:
     @classmethod
     def get_name(self, branch, m=0, n=0):
         names = [
-            "Asíntota horizontal",
-            "Dirección asintótica paralela a Ox",
-            "Dirección asintótica paralela a 0y",
-            "Asíntota oblicua y = %s*x + %s" % (str(m), str(n)),
-            "Dirección asintótica paralela a y = %s*x" % str(m),
+            "asíntota horizontal",
+            "dirección asintótica paralela a Ox",
+            "dirección asintótica paralela a 0y",
+            "asíntota oblicua y = %s*x + %s" % (str(m), str(n)),
+            "dirección asintótica paralela a y = %s*x" % str(m),
             None,
         ]
 
