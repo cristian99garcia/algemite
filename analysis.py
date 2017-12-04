@@ -68,7 +68,7 @@ class Analyzer(LowAnalyzer):
         self.derived_things = LowAnalyzer(self.derived)
 
         # Concavidad
-        self.derived2 = sympy.simplify(self.derived.diff(x).diff(x))
+        self.derived2 = sympy.simplify(function.diff(x, 2))
         self.derived2_things = LowAnalyzer(self.derived2)
 
     def get_minimums_and_maximums(self):
