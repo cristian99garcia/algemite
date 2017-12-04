@@ -105,7 +105,7 @@ class Analyzer(LowAnalyzer):
 
         # Signo
         string += "\nSigno:\n"
-        print self.positive, self.negative
+
         if self.positive.__class__ != EmptySet:
             string += "    + %s \n" % interval_to_string(self.positive)
 

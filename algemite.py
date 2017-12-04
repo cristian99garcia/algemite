@@ -48,7 +48,7 @@ class Algemite(Gtk.Application):
 
                 #expr = sympy.E**x/x**2
 
-                expr = sympy.E**x*x**2
+                expr = 3/(x*sympy.E**x)#*x**2)
                 self.window.analyze(expr)
 
 

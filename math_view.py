@@ -165,7 +165,8 @@ class ContainerBlock(Gtk.Box, Block):
         self.label.set_font_size(size)
 
         for child in self.children:
-            child.set_font_size(size)
+            if child is not None:
+                child.set_font_size(size)
 
     def get_font_size(self):
         return self.label.get_font_size()
@@ -918,11 +919,17 @@ def parse_rpn(expression):
     two_v = TWO_VALUES.keys()
     three_v = TRHEE_VALUES.keys()
 
+    count = 0
+
     for val in expression:
         negative = False
-        if val.startswith("-") and val != "-":
+        if val.startswith("-") and (val != "-" or count == 0):
             negative = True
             val = val[1:]
+
+        elif val == "-" and count == len(expression) - 1 and len(stack) == 1:
+            stack[0] = SubtractBlock(b=stack[0])
+            continue
 
         if val in one_v:
             block = ONE_VALUE[val](stack.pop())
@@ -943,8 +950,9 @@ def parse_rpn(expression):
             block = TextBlock(val)
 
         if negative:
-            block.set_label("-" + block.get_label())
+            block = SubtractBlock(b=block)
 
+        count += 1
         stack.append(block)
 
     return stack.pop()
@@ -1050,10 +1058,22 @@ if __name__ == "__main__":
 
     import rpn
 
+    expr = "-(3*x + 3)*exp(-x)/x**2"
+    #print rpn.split_expr(expr)
+    #print parse_rpn(rpn.split_expr(expr))
+
+    view = MathView.new_from_expression(expr)
+    v.pack_start(view, True, True, 0)
+    w.show_all()
+    Gtk.main()
+
+    """
     view = MathView()
     #view.set_from_expression("-sqrt(7)/3")
     #view.set_from_expression("x**3+x**2-2*x")
-    view.set_from_expression(str(4*sympy.log(x)/(sympy.E**x)))
+    #view.set_from_expression(3/(sympy.E**x*x**2))
+    block = parse_rpn(['-3', 'x', '*', '3', '-', 'e', '-x', '**', '*', 'x', '2', '**', '/'])
+    view.set_block(block)
     v.pack_start(view, True, True, 0)
 
     b = Gtk.Button("test")  # Un botón de pruebas
@@ -1062,5 +1082,5 @@ if __name__ == "__main__":
 
     w.show_all()
     Gtk.main()
-
+    """
     sys.exit(1)

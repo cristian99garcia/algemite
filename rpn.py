@@ -96,6 +96,47 @@ def splited_to_rpn(tokens):
     return out
 
 
+def _clean_split(tokens):
+    """
+    Básicamente, une los signos - con las expresiones
+    en los casos en los que se requiera, ejemplos:
+    ["(", "-", "3x", ")", "*", "2"]
+    ["-", "x", "+", "1"]
+    ["1", "+", "4", "/", "-", "x"]
+    """
+
+    _tokens = []
+
+    for token in tokens:
+        if len(_tokens) == 0:
+            _tokens.append(token)
+
+        elif len(_tokens) == 1:
+            if _tokens[0] == "-" and token not in ["(", ")"]:
+                _tokens[0] = _tokens[0] + token
+
+            else:
+                _tokens.append(token)
+
+        elif len(_tokens) >= 2:
+            ltoken = _tokens[-1]
+            ptoken = _tokens[-2]
+            if ltoken == "-" and not is_operator(token):
+                if is_operator(ptoken) or ptoken in ["(", ")"]:
+                    _tokens[-1] = ltoken + token
+
+                else:
+                    _tokens.append(token)
+
+            else:
+                _tokens.append(token)
+
+        else:
+            _tokens.append(token)
+
+    return _tokens
+
+
 def split_expr(string):
     if type(string) != str:
         string = str(string)
@@ -108,25 +149,7 @@ def split_expr(string):
             lchar = tokens[-1]
 
             if lchar in ["(", ")"] or is_operator(char) or is_operator(lchar):
-                if lchar == "-" and not is_operator(char):
-                    if len(tokens) >= 2 and not is_operator(tokens[-2]) and not tokens[-2] in ["(", ")"]:
-                        if not tokens[-2].isdigit():  # or tokens[-2] in NUMBERS:
-                            tokens[-1] += char
-
-                        else:
-                            tokens.append(char)
-
-                    elif len(tokens) >= 2 and (is_operator(tokens[-2]) or tokens[-2] in ["(", ")"]):
-                        tokens[-1] += char
-
-                    elif len(tokens) == 1 and not is_operator(char):
-                        tokens[-1] += char
-
-                    else:
-                        tokens.append(char)
-
-                else:
-                    tokens.append(char)
+                tokens.append(char)
 
             else:
                 tokens[-1] += char
@@ -145,7 +168,7 @@ def split_expr(string):
         else:
             tokens.append(char)
 
-    return tokens
+    return _clean_split(tokens)
 
 
 def expr_to_rpn(expr, blocks=False):
@@ -170,11 +193,23 @@ if __name__ == "__main__":
     expr = sympy.Sum(x**2, (i, 0, sympy.oo))
     """
 
-    expr = str(sympy.log(x)/(sympy.E**x))
+    """
+    #expr = str(sympy.log(x)/(sympy.E**x))
     #expr = "-sqrt(7)/3"
     #expr = "x**3+x**2-2*x"
     #-2*sqrt(7)/3 + (-1/3 + sqrt(7)/3)**3 + (-1/3 + sqrt(7)/3)**2 + 2/3
 
-    #print expr
+    #expr = 3/(sympy.E**x*x**2)
+    #expr = 3/(x*sympy.E**x)
+    expr = -(3*x + 3)*sympy.exp(-x)/x**2
+    print expr
     print split_expr(expr)
     print splited_to_rpn(split_expr(str(expr)))
+    """
+
+    #expr = str(-(3*x + 3)*sympy.exp(-x)/x**2)
+    #print split_expr(expr)
+    print split_expr("-(3*x + 3)*exp(-x)/x**2")
+    #print _clean_split(["(", "-", "3x", ")", "*", "2"])
+    #print _clean_split(["-", "x", "+", "1"])
+    #print _clean_split(["1", "+", "4", "/", "-", "x"])
